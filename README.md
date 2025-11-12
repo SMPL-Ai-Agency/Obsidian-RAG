@@ -15,7 +15,7 @@ It pairs **semantic embeddings** (for context-aware retrieval) with **graph rela
 
 ---
 
-## Plugin Features (What the Plugin Implements)
+## Plugin Features
 These are the built-in mechanisms and core behaviors the plugin executes to make the system work.
 
 - **Automatic note synchronization:** Detects new, edited, and deleted notes; syncs them in near-real-time to **Supabase (vector)** and **Neo4j (graph)**.  
@@ -34,7 +34,7 @@ These are the built-in mechanisms and core behaviors the plugin executes to make
 
 ---
 
-## Use Cases (What You Can Do)
+## Use Cases
 Once the plugin is configured and running, users can perform these tasks and automations:
 
 - **Sync multiple vaults safely:** Keep “Research,” “Business,” and “Personal” vaults independent while syncing each to Supabase and Neo4j—no cross-project data mixing.  
