@@ -1,13 +1,18 @@
 ## Obsidian RAG
 ### Hybrid RAG Sync for Obsidian Notes
 Obsidian RAG is a fork of the MindMatrix Obsidian plugin. It seamlessly synchronizes your notes with a Supabase vector store and Neo4j graph database to build a Hybrid RAG system for AI automation platforms and large language models (LLMs) like AI assistants.
-It prioritizes Ollama-powered embeddings (local or cloud-hosted) for privacy and cost efficiency, while also providing support for OpenAI API and compatible models. This enables efficient knowledge retrieval and automation across multiple vaults. Build custom integrations, automate workflows with n8n, and turn your Second Brain into a dynamic, searchable resource accessible via AI tools—without mixing content between projects.
+
+It prioritizes Ollama-powered embeddings (local or cloud-hosted) for privacy and cost efficiency, while also providing support for OpenAI API and compatible models. This democratizes AI access, reduces reliance on centralized cloud services, and inspires innovative workflows that boost productivity and creativity for developers, researchers, and knowledge workers everywhere.
+
+The Osidian RAG Plugin enables efficient knowledge retrieval and automation across multiple vaults. Build custom integrations, automate workflows with n8n, and turn your Second Brain into a dynamic, searchable resource accessible via AI tools—without mixing content between projects.
+
 For example, create a Telegram bot for on-the-go queries that searches your vectorized notes and GraphRAG entities in Neo4j for answers. An n8n workflow can integrate Perplexity or other search APIs to blend personal knowledge with external data, delivering a portable, intelligent assistant.
 
 ---
 
 ## Overview
 Obsidian RAG syncs your notes to a Supabase vector store and Neo4j graph database, enabling a Hybrid RAG system for AI assistants and automation:
+- Create privacy-first, AI-ready knowledge bases from Obsidian Vaults
 - Build workflows with n8n to upsert multi-vault data without mixing projects.
 - Create semantic and graph-based searches for your Second Brain knowledge, prioritizing Ollama embeddings (local or cloud) over OpenAI API, with support for OpenAI and compatibles.
 - Develop integrations via PostgreSQL/Neo4j connections, like Telegram bots or Perplexity-augmented queries.
