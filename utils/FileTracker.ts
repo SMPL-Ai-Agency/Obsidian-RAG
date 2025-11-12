@@ -341,11 +341,17 @@ export class FileTracker {
 				try {
 					// First delete the old record's chunks and wait for completion
 					console.log(`[MindMatrix] Deleting old chunks for file status ID: ${oldFileStatus.id}`);
-					await this.supabaseService.deleteDocumentChunks(oldFileStatus.id);
+                                        await this.supabaseService.deleteDocumentChunks(
+                                                oldFileStatus.id,
+                                                oldFileStatus.file_path
+                                        );
 					
 					// Then delete the existing record's chunks at the new path
 					console.log(`[MindMatrix] Deleting existing chunks at new path for file status ID: ${newFileStatus.id}`);
-					await this.supabaseService.deleteDocumentChunks(newFileStatus.id);
+                                        await this.supabaseService.deleteDocumentChunks(
+                                                newFileStatus.id,
+                                                newFileStatus.file_path
+                                        );
 					
 					// Delete the old file status
 					console.log(`[MindMatrix] Purging old file status record ID: ${oldFileStatus.id}`);
@@ -374,7 +380,10 @@ export class FileTracker {
 				try {
 					// If content changed, first delete old chunks and wait for completion
 					console.log(`[MindMatrix] Content changed during move, deleting old chunks for file status ID: ${oldFileStatus.id}`);
-					await this.supabaseService.deleteDocumentChunks(oldFileStatus.id);
+                                        await this.supabaseService.deleteDocumentChunks(
+                                                oldFileStatus.id,
+                                                oldFileStatus.file_path
+                                        );
 					
 					// Then delete the old file status
 					console.log(`[MindMatrix] Purging old file status record ID: ${oldFileStatus.id}`);
@@ -425,7 +434,7 @@ export class FileTracker {
 			}
 
 			// 2. Delete old chunks if they exist
-			await this.supabaseService.deleteDocumentChunks(fileStatus.id);
+                        await this.supabaseService.deleteDocumentChunks(fileStatus.id, fileStatus.file_path);
 
 			// 3. Create new chunks
 			const chunks = await this.createDocumentChunks(file);

@@ -76,7 +76,7 @@ describe('QueueService processDeleteTask', () => {
                 expect(supabaseService.getFileStatusIdByPath).toHaveBeenCalledWith('Test.md');
                 expect(supabaseService.getDocumentChunks).toHaveBeenNthCalledWith(1, fileStatusId);
                 expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledTimes(1);
-                expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledWith(fileStatusId);
+                expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledWith(fileStatusId, 'Test.md');
                 expect(supabaseService.getDocumentChunks).toHaveBeenNthCalledWith(2, fileStatusId);
                 expect(supabaseService.updateFileStatusOnDelete).toHaveBeenCalledWith('Test.md');
         });

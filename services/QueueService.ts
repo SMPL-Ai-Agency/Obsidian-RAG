@@ -410,7 +410,7 @@ export class QueueService {
                                                                 ? `Deletion attempt ${deleteAttempts + 1}/${maxDeleteAttempts}`
                                                                 : 'Deleting from database'
                                                 );
-                                                await this.supabaseService.deleteDocumentChunks(fileStatusId);
+                                                await this.supabaseService.deleteDocumentChunks(fileStatusId, filePath);
                                                 deletedSuccessfully = true;
                                                 const remainingChunks = await this.supabaseService.getDocumentChunks(fileStatusId);
                                                 if (remainingChunks.length > 0) {

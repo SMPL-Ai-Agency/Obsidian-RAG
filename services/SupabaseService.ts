@@ -409,17 +409,19 @@ export class SupabaseService {
 	 * Deletes document chunks for a given file status ID from the obsidian_documents table.
 	 * Improved with tracking of operation progress and verification.
 	 */
-        public async deleteDocumentChunks(fileStatusId: number): Promise<void> {
+        public async deleteDocumentChunks(fileStatusId: number, filePath?: string): Promise<void> {
 		if (!this.client) {
 			console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
 			return;
 		}
 
-		const fileStatusKey = fileStatusId.toString();
+                const fileStatusKey = filePath ?? fileStatusId.toString();
 
 		// If a deletion is already in progress for this file, wait with exponential backoff
 		if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-			console.warn(`Delete operation already in progress for file status ID ${fileStatusId}. Waiting...`);
+                        console.warn(
+                                `Delete operation already in progress for ${filePath ?? `file status ID ${fileStatusId}`}. Waiting...`
+                        );
 			let retryCount = 0;
 			const maxRetries = 5;
 			const baseDelay = 500; // ms
@@ -431,7 +433,9 @@ export class SupabaseService {
 			}
 
 			if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-				throw new Error(`Deletion operation timeout for file status ID ${fileStatusId}`);
+                                throw new Error(
+                                        `Deletion operation timeout for ${filePath ?? `file status ID ${fileStatusId}`}`
+                                );
 			}
 		}
 
@@ -439,7 +443,9 @@ export class SupabaseService {
 		this.deleteOperationsInProgress.set(fileStatusKey, true);
 
 		try {
-			console.log(`Starting deletion of chunks for file status ID ${fileStatusId}`);
+                        console.log(
+                                `Starting deletion of chunks for ${filePath ?? `file status ID ${fileStatusId}`}`
+                        );
 
 			// Check how many chunks exist
 			const { data: initialData, error: initialCountError } = await this.client
