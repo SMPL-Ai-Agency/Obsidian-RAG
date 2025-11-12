@@ -1,31 +1,35 @@
-## Obsidian RAG
-### Hybrid RAG Sync for Obsidian Notes
-Obsidian RAG is a fork of the MindMatrix Obsidian plugin. It seamlessly synchronizes your notes with a Supabase vector store and Neo4j graph database to build a Hybrid RAG system for AI automation platforms and large language models (LLMs) like AI assistants.
-
-It prioritizes Ollama-powered embeddings (local or cloud-hosted) for privacy and cost efficiency, while also providing support for OpenAI API and compatible models. This democratizes AI access, reduces reliance on centralized cloud services, and inspires innovative workflows that boost productivity and creativity for developers, researchers, and knowledge workers everywhere.
-
-The Osidian RAG Plugin enables efficient knowledge retrieval and automation across multiple vaults. Build custom integrations, automate workflows with n8n, and turn your Second Brain into a dynamic, searchable resource accessible via AI tools—without mixing content between projects.
-
-For example, create a Telegram bot for on-the-go queries that searches your vectorized notes and GraphRAG entities in Neo4j for answers. An n8n workflow can integrate Perplexity or other search APIs to blend personal knowledge with external data, delivering a portable, intelligent assistant.
+## Summary
+Obsidian RAG connects your Obsidian vaults to both a Supabase vector store and a Neo4j graph database to create a **Hybrid RAG (Retrieval-Augmented Generation)** system.  
+It combines **semantic embeddings** (for deep contextual understanding) with **graph-based relationships** (for linked knowledge and entity mapping), allowing your notes to power intelligent assistants, automations, and advanced search tools—all while preserving project separation and privacy.
 
 ---
 
-## Overview
-Obsidian RAG syncs your notes to a Supabase vector store and Neo4j graph database, enabling a Hybrid RAG system for AI assistants and automation:
-- Create privacy-first, AI-ready knowledge bases from Obsidian Vaults
-- Build workflows with n8n to upsert multi-vault data without mixing projects.
-- Create semantic and graph-based searches for your Second Brain knowledge, prioritizing Ollama embeddings (local or cloud) over OpenAI API, with support for OpenAI and compatibles.
-- Develop integrations via PostgreSQL/Neo4j connections, like Telegram bots or Perplexity-augmented queries.
+## Capabilities (What You Can Do)
+- **Sync multiple vaults safely:** Keep your “Research,” “Business,” and “Personal” vaults independent while syncing all to Supabase and Neo4j—no cross-project data mixing.
+- **Semantic search and retrieval:** Ask natural questions or find related ideas using meaning-based searches powered by Ollama (local or cloud), with optional OpenAI or compatible APIs.
+- **Graph-based knowledge exploration:** Visualize and navigate relationships between notes, tags, people, and topics through Neo4j for connected thinking and advanced research.
+- **Automated workflows with n8n:** Trigger automated sync, search, or summary workflows that deliver results to Telegram, Discord, dashboards, or other AI platforms.
+- **Build custom AI assistants:** Combine your personal notes with external data sources (e.g., Perplexity, search APIs) to create knowledge-driven agents and chatbots.
+- **Local-first privacy mode:** Run everything locally—embeddings, vector search, and graph operations—for full privacy and zero cloud dependency.
+- **Cross-device synchronization:** Keep your notes, deletions, and metadata consistent across devices using a shared sync file.
+- **Offline operation:** Continue capturing and editing notes offline; queued updates automatically sync once you reconnect.
 
 ---
 
-## Features
-- Automatic synchronization of new and modified notes.
-- Real-time updates as notes are added or edited.
-- Configurable exclusion rules for files and directories.
-- Generation of vector embeddings for semantic similarity search.
-- Robust offline support with an operation queue and reconciliation.
-- Cross-device coordination via a dedicated sync file.
+## Plugin Features (What the Plugin Implements)
+- **Automatic note synchronization:** Detects new, edited, or deleted notes and syncs them to Supabase (vector) and Neo4j (graph) in real time.
+- **Embedding generation service:** Uses Ollama by default to generate vector embeddings for your notes, with optional OpenAI or compatible models.
+- **Graph construction engine:** Builds Neo4j nodes and relationships for notes, tags, and entities—supporting GraphRAG-style queries.
+- **Queue and task management:** Handles sync jobs, retries, and parallel processing through an internal queue system.
+- **Offline queue and reconciliation:** Automatically stores tasks locally when offline and executes them once a connection is available.
+- **Configurable exclusions:** Lets you exclude folders, files, or templates (e.g., “Daily Notes,” “Private Journals”) from sync.
+- **Database setup automation:** Initializes and validates Supabase tables, vector indexes, and Neo4j schema with one command.
+- **Connection status and error handling:** Displays database connection states, handles errors gracefully, and retries failed sync operations.
+- **Progress tracking and notifications:** Provides in-app progress indicators and notifications for sync status, updates, and errors.
+- **Cross-device sync management:** Uses a shared sync file to ensure accurate multi-device coordination and state consistency.
+- **Extensible architecture:** Built with modular TypeScript services (EmbeddingService, QueueService, SupabaseService, etc.) that developers can extend.
+- **n8n workflow hooks:** Integrates with n8n to trigger sync, query, and update operations directly from workflows.
+- **Developer utilities:** Includes helper scripts for table queries, database resets, and automated release processes.
 
 ---
 
@@ -80,127 +84,3 @@ This includes:
 - Community features and collaboration tools
 
 For detailed task tracking and progress, see [TASKS.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md).
-
----
-
-## For Developers
-### Getting Started
-1. Clone the repository:
-    ```shell
-    git clone https://github.com/SMPL-Ai-Agency/Obsidian-RAG.git
-    cd Obsidian-RAG
-    ```
-2. Install dependencies using yarn:
-    ```shell
-    yarn install
-    ```
-3. Start the development build:
-    ```shell
-    yarn dev
-    ```
-
-### Development Prerequisites
-- Node.js v16 or higher
-- Yarn
-- A Supabase (PostgreSQL) database with the vector extension enabled
-- Familiarity with the Obsidian Plugin API
-
-### Project Structure
-```
-Obsidian-RAG/
-├── main.ts # Plugin entry point and lifecycle management
-├── settings/
-│   ├── SettingsTab.ts # Settings UI component
-│   └── Settings.ts # Settings interface and defaults
-├── services/
-│   ├── EventEmitter.ts # Inter-service event communication
-│   ├── InitialSyncManager.ts # Initial vault synchronization
-│   ├── MetadataExtractor.ts # Extracts note metadata for sync
-│   ├── OfflineQueueManager.ts # Handles operations during offline periods
-│   ├── EmbeddingService.ts # Ollama/OpenAI embedding generation
-│   ├── QueueService.ts # Async task queue with event emissions
-│   ├── StatusManager.ts # Progress and status tracking
-│   ├── SupabaseService.ts # Supabase database operations
-│   ├── SyncDetectionManager.ts # Detects quiet sync periods
-│   ├── SyncFileManager.ts # Cross-device sync file management
-│   └── __tests__/ # Service-level unit tests
-├── utils/
-│   ├── ErrorHandler.ts # Centralized error logging and recovery
-│   ├── FileTracker.ts # Tracks file events and sync state
-│   ├── NotificationManager.ts # User notifications and fixed progress bar
-│   └── TextSplitter.ts # Document chunking and text processing
-├── models/
-│   ├── DocumentChunk.ts # Document chunk and metadata structures
-│   ├── ObsidianRAGSettings.ts # Settings data model
-│   ├── ProcessingTask.ts # Task queue interfaces and error types
-│   ├── QueueEvents.ts # Event type definitions
-│   └── SyncModels.ts # Sync-related data shapes
-├── scripts/
-│   ├── query_tables.ts # Development helper queries
-│   └── release-utils.sh # Release automation helpers
-├── sql/ # Database schema and helper SQL scripts
-├── tests/ # Unit and integration test files
-├── styles.css # Plugin styling
-├── manifest.json # Plugin manifest file
-└── README.md # This documentation file
-```
-
-### Contributing
-We welcome contributions to improve Obsidian RAG. To contribute:
-1. Fork the repository.
-2. Create a feature branch.
-3. Implement your changes along with tests.
-4. Submit a pull request with a clear description of your changes.
-
-Contributions of all kinds are welcome, including bug fixes, feature improvements, documentation updates, and test coverage enhancements.
-
-### Building and Testing
-To run tests and build the plugin:
-```shell
-# Run tests
-yarn test
-# Build for production
-yarn build
-```
-
----
-
-## Support
-If you encounter any issues or have questions:
-- Open an issue on GitHub.
-- Search existing issues for solutions.
-- Consult the [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md) guide for troubleshooting.
-
----
-
-## License
-This project is licensed under the MIT License.
-
----
-
-## Development
-### Documentation
-The project includes comprehensive documentation to help developers understand and contribute to the codebase:
-- [Installation Guide](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md)
-- [Development Guide](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/DEVELOPMENT.md)
-- [Architecture Overview](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/ARCHITECTURE.md)
-- [Changelog](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md)
-- [Task Tracking](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md)
-
-### Prerequisites
-- Node.js (v16 or later)
-- Yarn package manager
-- PostgreSQL (v14 or later)
-- Supabase account
-- OpenAI API key (for embeddings)
-
-### Setup
-1. Clone the repository
-    ```shell
-    git clone https://github.com/SMPL-Ai-Agency/Obsidian-RAG.git
-    cd Obsidian-RAG
-    ```
-2. Install dependencies:
-    ```shell
-    yarn install
-    ```
