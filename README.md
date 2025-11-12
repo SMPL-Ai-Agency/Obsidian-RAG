@@ -118,35 +118,44 @@ For detailed task tracking and progress, see [TASKS.md](TASKS.md).
 
 ```
 obsidian-rag/
-├── src/
-│   ├── main.ts                    # Plugin entry point and lifecycle management
-│   ├── settings/
-│   │   ├── SettingsTab.ts         # Settings UI component
-│   │   └── Settings.ts            # Settings interface and defaults
-│   ├── services/
-│   │   ├── SupabaseService.ts     # Supabase database operations
-│   │   ├── OpenAIService.ts       # OpenAI API and embedding generation
-│   │   ├── QueueService.ts        # Async task queue with event emissions
-│   │   ├── SyncFileManager.ts     # Cross-device sync file management
-│   │   ├── InitialSyncManager.ts  # Initial vault synchronization
-│   │   ├── SyncDetectionManager.ts# Detects quiet sync periods
-│   │   ├── OfflineQueueManager.ts # Handles operations during offline periods
-│   │   └── EventEmitter.ts        # Inter-service event communication
-│   ├── utils/
-│   │   ├── TextSplitter.ts        # Document chunking and text processing
-│   │   ├── NotificationManager.ts # User notifications and fixed progress bar
-│   │   ├── FileTracker.ts         # Tracks file events and sync state
-│   │   └── ErrorHandler.ts        # Centralized error logging and recovery
-│   └── models/
-│       ├── DocumentChunk.ts       # Document chunk and metadata structures
-│       └── ProcessingTask.ts      # Task queue interfaces and error types
-├── tests/                         # Unit and integration test files
-├── docs/                          # Documentation files
-│   ├── CONTRIBUTING.md           # Contribution guidelines
-│   └── API.md                    # API documentation
-├── types/                         # Additional TypeScript type definitions
-├── manifest.json                  # Plugin manifest file
-└── README.md                      # This documentation file
+├── main.ts                       # Plugin entry point and lifecycle management
+├── constants/
+│   ├── ErrorMessages.ts          # Centralized error messages
+│   └── index.ts                  # Exports for shared constants
+├── services/
+│   ├── EventEmitter.ts           # Inter-service event communication
+│   ├── InitialSyncManager.ts     # Initial vault synchronization
+│   ├── MetadataExtractor.ts      # Extracts note metadata for sync
+│   ├── OfflineQueueManager.ts    # Handles operations during offline periods
+│   ├── OpenAIService.ts          # OpenAI API and embedding generation
+│   ├── QueueService.ts           # Async task queue with event emissions
+│   ├── StatusManager.ts          # Progress and status tracking
+│   ├── SupabaseService.ts        # Supabase database operations
+│   ├── SyncDetectionManager.ts   # Detects quiet sync periods
+│   ├── SyncFileManager.ts        # Cross-device sync file management
+│   └── __tests__/                # Service-level unit tests
+├── settings/
+│   ├── Settings.ts               # Settings interface and defaults
+│   └── SettingsTab.ts            # Settings UI component
+├── models/
+│   ├── DocumentChunk.ts          # Document chunk and metadata structures
+│   ├── ObsidianRAGSettings.ts    # Settings data model
+│   ├── ProcessingTask.ts         # Task queue interfaces and error types
+│   ├── QueueEvents.ts            # Event type definitions
+│   └── SyncModels.ts             # Sync-related data shapes
+├── utils/
+│   ├── ErrorHandler.ts           # Centralized error logging and recovery
+│   ├── FileTracker.ts            # Tracks file events and sync state
+│   ├── NotificationManager.ts    # User notifications and progress bar
+│   └── TextSplitter.ts           # Document chunking and text processing
+├── scripts/
+│   ├── query_tables.ts           # Development helper queries
+│   └── release-utils.sh          # Release automation helpers
+├── sql/                          # Database schema and helper SQL scripts
+├── tests/                        # Unit and integration test files
+├── styles.css                    # Plugin styling
+├── manifest.json                 # Plugin manifest file
+└── README.md                     # This documentation file
 ```
 
 ### Contributing
@@ -207,11 +216,11 @@ This project is licensed under the MIT License.
 ### Documentation
 The project includes comprehensive documentation to help developers understand and contribute to the codebase:
 
+- [Project Overview](README.md)
 - [Installation Guide](INSTALL.md)
-- [Development Guide](DEVELOPMENT.md)
-- [Architecture Overview](ARCHITECTURE.md)
 - [Changelog](CHANGELOG.md)
-- [Task Tracking](TASKS.md)
+- [Task Tracker](TASKS.md)
+- [Claude Integration Notes](CLAUDE.md)
 
 ### Prerequisites
 - Node.js (v16 or later)
