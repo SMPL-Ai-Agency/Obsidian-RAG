@@ -1,5 +1,5 @@
 ## Obsidian RAG
-### A Customizable Hybrid RAG Obsidian Plugin for Obsidian Notes
+### A Customizable Obsidian Hybrid RAG Plugin for Obsidian Notes
 Obsidian RAG is a fork of the MindMatrix Obsidian plugin. It seamlessly synchronizes your notes with a **Supabase vector store** and **Neo4j graph database** to build a Hybrid RAG system for AI automation platforms and large language models (LLMs) like AI assistants.  
 
 It prioritizes **Ollama-powered embeddings** (local or cloud-hosted) for privacy and cost efficiency, while also providing optional support for **OpenAI API** and compatible models.  
