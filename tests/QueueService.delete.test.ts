@@ -44,16 +44,22 @@ describe('QueueService processDeleteTask', () => {
 
         const createQueueService = (supabaseService: Partial<SupabaseService>) => {
                 const errorHandler = { handleError: jest.fn() } as unknown as ErrorHandler;
-                const notificationManager = { updateProgress: jest.fn() } as unknown as NotificationManager;
-                return new QueueService(
-                        2,
-                        3,
-                        supabaseService as SupabaseService,
-                        null as unknown as OpenAIService,
-                        errorHandler,
-                        notificationManager,
-                        {} as Vault
-                );
+                const notificationManager = {
+                        updateProgress: jest.fn(),
+                        clear: jest.fn()
+                } as unknown as NotificationManager;
+                return {
+                        queueService: new QueueService(
+                                2,
+                                3,
+                                supabaseService as SupabaseService,
+                                null as unknown as OpenAIService,
+                                errorHandler,
+                                notificationManager,
+                                {} as Vault
+                        ),
+                        notificationManager
+                };
         };
 
         it('removes chunks using the resolved file status id without retrying on success', async () => {
@@ -68,7 +74,7 @@ describe('QueueService processDeleteTask', () => {
                         updateFileStatusOnDelete: jest.fn().mockResolvedValue(undefined)
                 } as Partial<SupabaseService>;
 
-                const queueService = createQueueService(supabaseService);
+                const { queueService } = createQueueService(supabaseService);
                 const task = createTask();
 
                 await (queueService as any).processDeleteTask(task);
@@ -79,5 +85,44 @@ describe('QueueService processDeleteTask', () => {
                 expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledWith(fileStatusId);
                 expect(supabaseService.getDocumentChunks).toHaveBeenNthCalledWith(2, fileStatusId);
                 expect(supabaseService.updateFileStatusOnDelete).toHaveBeenCalledWith('Test.md');
+        });
+
+        it('retries chunk deletion when the first delete attempt fails', async () => {
+                jest.useFakeTimers();
+                const fileStatusId = 99;
+                const supabaseService = {
+                        getFileStatusIdByPath: jest.fn().mockResolvedValue(fileStatusId),
+                        getDocumentChunks: jest
+                                .fn()
+                                .mockResolvedValueOnce([createChunk(fileStatusId)])
+                                .mockResolvedValueOnce([]),
+                        deleteDocumentChunks: jest
+                                .fn()
+                                .mockRejectedValueOnce(new Error('temporary failure'))
+                                .mockResolvedValueOnce(undefined),
+                        updateFileStatusOnDelete: jest.fn().mockResolvedValue(undefined)
+                } as Partial<SupabaseService>;
+
+                const { queueService, notificationManager } = createQueueService(supabaseService);
+                const task = createTask();
+
+                const processPromise = (queueService as any).processDeleteTask(task);
+
+                await Promise.resolve();
+                await jest.advanceTimersByTimeAsync(2000);
+                await processPromise;
+
+                expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledTimes(2);
+                expect(supabaseService.getDocumentChunks).toHaveBeenNthCalledWith(1, fileStatusId);
+                expect(supabaseService.getDocumentChunks).toHaveBeenNthCalledWith(2, fileStatusId);
+                expect(notificationManager.updateProgress).toHaveBeenCalledWith(
+                        expect.objectContaining({
+                                taskId: task.id,
+                                progress: 50,
+                                currentStep: 'Will retry deletion in 2s'
+                        })
+                );
+                expect(supabaseService.updateFileStatusOnDelete).toHaveBeenCalledWith('Test.md');
+                jest.useRealTimers();
         });
 });
