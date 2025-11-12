@@ -1,10 +1,10 @@
-# MindMatrix Architecture
+# Obsidian RAG Architecture
 
 ## Overview
 
-MindMatrix is an Obsidian plugin that enhances note-taking by synchronizing documents with a Supabase vector database for AI-powered search. The plugin provides semantic search capabilities through OpenAI embeddings while maintaining data integrity and user experience. It operates entirely within the Obsidian environment, leveraging remote services (Supabase and OpenAI) for data storage and processing.
+Obsidian RAG is an Obsidian plugin that enhances note-taking by synchronizing documents with a Supabase vector database for AI-powered search. The plugin provides semantic search capabilities through OpenAI embeddings while maintaining data integrity and user experience. It operates entirely within the Obsidian environment, leveraging remote services (Supabase and OpenAI) for data storage and processing.
 
-The primary purpose of MindMatrix is to enable users to create chatbots through n8n that can query and interact with their Obsidian knowledge base. By storing document embeddings in Supabase, the plugin makes the entire vault searchable and accessible to AI-powered applications, allowing users to build custom workflows and chatbots that leverage their personal knowledge base.
+The primary purpose of Obsidian RAG is to enable users to create chatbots through n8n that can query and interact with their Obsidian knowledge base. By storing document embeddings in Supabase, the plugin makes the entire vault searchable and accessible to AI-powered applications, allowing users to build custom workflows and chatbots that leverage their personal knowledge base.
 
 The plugin implements a worker actor model with an in-memory event queue to ensure immediate response to user actions while maintaining data consistency. When a user starts typing in Obsidian, the plugin immediately detects these changes and queues them for processing, even while initialization and system startup procedures are running in the background.
 
@@ -398,7 +398,7 @@ The following checklist should be used to verify the database setup is correct b
 
 ## Project Structure
 
-The MindMatrix plugin follows a simple, flat file structure organized by function:
+The Obsidian RAG plugin follows a simple, flat file structure organized by function:
 
 - **`models/`**: Data models and type definitions for domain objects
 - **`services/`**: Business logic and core functionality
@@ -505,4 +505,4 @@ The MindMatrix plugin follows a simple, flat file structure organized by functio
 
 ## Conclusion
 
-The MindMatrix architecture provides a robust, scalable solution for synchronizing Obsidian vaults with Supabase vector databases. By implementing a worker actor model with strict event ordering and atomic processing, the plugin ensures data consistency while maintaining performance. The hash-based change detection minimizes unnecessary processing and API calls, while the event queue system ensures reliable operation even during connectivity issues.
+The Obsidian RAG architecture provides a robust, scalable solution for synchronizing Obsidian vaults with Supabase vector databases. By implementing a worker actor model with strict event ordering and atomic processing, the plugin ensures data consistency while maintaining performance. The hash-based change detection minimizes unnecessary processing and API calls, while the event queue system ensures reliable operation even during connectivity issues.

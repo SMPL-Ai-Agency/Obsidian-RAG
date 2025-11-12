@@ -1,14 +1,14 @@
 //SettingsTab.ts
 import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
-import MindMatrixPlugin from '../main';
-import { MindMatrixSettings, generateVaultId, isVaultInitialized, getUserExclusions, SYSTEM_EXCLUSIONS } from './Settings';
+import ObsidianRAGPlugin from '../main';
+import { ObsidianRAGSettings, generateVaultId, isVaultInitialized, getUserExclusions, SYSTEM_EXCLUSIONS } from './Settings';
 import { SupabaseService } from '../services/SupabaseService';
 
-export class MindMatrixSettingsTab extends PluginSettingTab {
-	plugin: MindMatrixPlugin;
-	settings: MindMatrixSettings;
+export class ObsidianRAGSettingsTab extends PluginSettingTab {
+	plugin: ObsidianRAGPlugin;
+	settings: ObsidianRAGSettings;
 
-	constructor(app: App, plugin: MindMatrixPlugin) {
+	constructor(app: App, plugin: ObsidianRAGPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 		this.settings = plugin.settings;
@@ -297,8 +297,8 @@ export class MindMatrixSettingsTab extends PluginSettingTab {
 						// Also update the system excluded files
 						const systemFiles = this.settings.exclusions.systemExcludedFiles;
 						// Remove old sync file references
-						const oldSyncFileIndex = systemFiles.findIndex(f => f === '_mindmatrixsync.md');
-						const oldSyncBackupIndex = systemFiles.findIndex(f => f === '_mindmatrixsync.md.backup');
+						const oldSyncFileIndex = systemFiles.findIndex(f => f === '_obsidianragsync.md');
+						const oldSyncBackupIndex = systemFiles.findIndex(f => f === '_obsidianragsync.md.backup');
 						if (oldSyncFileIndex !== -1) systemFiles.splice(oldSyncFileIndex, 1);
 						if (oldSyncBackupIndex !== -1) systemFiles.splice(oldSyncBackupIndex, 1);
 						// Add new sync file references

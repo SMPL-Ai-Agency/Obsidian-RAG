@@ -69,7 +69,7 @@ export class InitialSyncManager {
 			maxConcurrentBatches: 3,
 			enableAutoInitialSync: true,
 			priorityRules: [],
-			syncFilePath: '_mindmatrixsync.md',
+			syncFilePath: '_obsidianragsync.md',
 			exclusions: {
 				excludedFolders: [],
 				excludedFileTypes: [],
@@ -92,7 +92,7 @@ export class InitialSyncManager {
 	 * Filters files based on exclusion rules.
 	 */
 	private filterExcludedFiles(files: TFile[]): TFile[] {
-		const syncFilePath = this.options.syncFilePath || '_mindmatrixsync.md';
+		const syncFilePath = this.options.syncFilePath || '_obsidianragsync.md';
 		const exclusions = this.options.exclusions || {
 			excludedFolders: [],
 			excludedFileTypes: [],
@@ -106,8 +106,8 @@ export class InitialSyncManager {
 			// Exclude sync files explicitly
 			if (
 				filePath === syncFilePath ||
-				filePath === '_mindmatrixsync.md' ||
-				filePath === '_mindmatrixsync.md.backup'
+				filePath === '_obsidianragsync.md' ||
+				filePath === '_obsidianragsync.md.backup'
 			) {
 				return false;
 			}
@@ -126,13 +126,13 @@ export class InitialSyncManager {
 	 */
 	public async startSync(): Promise<void> {
 		try {
-			console.log('[MindMatrix] Starting initial sync...');
+			console.log('[ObsidianRAG] Starting initial sync...');
 			
 			// Check if files are already in the database
 			if (this.supabaseService) {
 				const existingFiles = await this.supabaseService.getFileCount();
 				if (existingFiles > 0) {
-					console.log('[MindMatrix] Files already exist in database, skipping initial sync');
+					console.log('[ObsidianRAG] Files already exist in database, skipping initial sync');
 					return;
 				}
 			}
@@ -145,11 +145,11 @@ export class InitialSyncManager {
 			});
 
 			if (filesToSync.length === 0) {
-				console.log('[MindMatrix] No files to sync');
+				console.log('[ObsidianRAG] No files to sync');
 				return;
 			}
 
-			console.log(`[MindMatrix] Total files to sync: ${filesToSync.length}`);
+			console.log(`[ObsidianRAG] Total files to sync: ${filesToSync.length}`);
 
 			// Sort files by priority (newer files first)
 			filesToSync.sort((a, b) => {
@@ -165,19 +165,19 @@ export class InitialSyncManager {
 				batches.push(filesToSync.slice(i, i + batchSize));
 			}
 
-			console.log(`[MindMatrix] Created ${batches.length} batches for syncing`);
+			console.log(`[ObsidianRAG] Created ${batches.length} batches for syncing`);
 
 			// Process each batch
 			for (let i = 0; i < batches.length; i++) {
 				const batch = batches[i];
-				console.log(`[MindMatrix] Processing batch-${i} with ${batch.length} files`);
+				console.log(`[ObsidianRAG] Processing batch-${i} with ${batch.length} files`);
 				await this.processBatch(batch);
-				console.log(`[MindMatrix] Batch batch-${i} completed in ${Date.now() - startTime} ms`);
+				console.log(`[ObsidianRAG] Batch batch-${i} completed in ${Date.now() - startTime} ms`);
 			}
 
-			console.log('[MindMatrix] Initial sync completed');
+			console.log('[ObsidianRAG] Initial sync completed');
 		} catch (error) {
-			console.error('[MindMatrix] Error during initial sync:', error);
+			console.error('[ObsidianRAG] Error during initial sync:', error);
 			throw error;
 		}
 	}
@@ -212,9 +212,9 @@ export class InitialSyncManager {
 	 * Create batches of files for processing.
 	 */
 	private createBatches(files: TFile[]): SyncBatch[] {
-		const syncFilePath = this.options.syncFilePath || '_mindmatrixsync.md';
+		const syncFilePath = this.options.syncFilePath || '_obsidianragsync.md';
 		// Ensure sync file is not included
-		files = files.filter(file => file.path !== syncFilePath && file.path !== '_mindmatrixsync.md' && file.path !== '_mindmatrixsync.md.backup');
+		files = files.filter(file => file.path !== syncFilePath && file.path !== '_obsidianragsync.md' && file.path !== '_obsidianragsync.md.backup');
 		const batches: SyncBatch[] = [];
 		for (let i = 0; i < files.length; i += this.options.batchSize) {
 			const batchFiles = files.slice(i, i + this.options.batchSize);
@@ -292,8 +292,8 @@ export class InitialSyncManager {
 	private async processFile(file: TFile): Promise<void> {
 		try {
 			// Skip sync file if somehow reached here
-			const syncFilePath = this.options.syncFilePath || '_mindmatrixsync.md';
-			if (file.path === syncFilePath || file.path === '_mindmatrixsync.md' || file.path === '_mindmatrixsync.md.backup') {
+			const syncFilePath = this.options.syncFilePath || '_obsidianragsync.md';
+			if (file.path === syncFilePath || file.path === '_obsidianragsync.md' || file.path === '_obsidianragsync.md.backup') {
 				return;
 			}
 			const metadata = await this.metadataExtractor.extractMetadata(file);

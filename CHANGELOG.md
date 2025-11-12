@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial release of MindMatrix plugin
+- Initial release of Obsidian RAG plugin
 - Database management features
   - Automated database setup
   - Connection testing

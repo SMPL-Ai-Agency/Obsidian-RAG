@@ -6,14 +6,14 @@ import { QueueService } from './services/QueueService';
 import { FileTracker } from './utils/FileTracker';
 import { ErrorHandler } from './utils/ErrorHandler';
 import { NotificationManager } from './utils/NotificationManager';
-import { MindMatrixSettingsTab } from './settings/SettingsTab';
+import { ObsidianRAGSettingsTab } from './settings/SettingsTab';
 import { SyncFileManager } from './services/SyncFileManager';
 import { InitialSyncManager } from './services/InitialSyncManager';
 import { MetadataExtractor } from './services/MetadataExtractor';
 import { StatusManager, PluginStatus } from './services/StatusManager';
 import { SyncDetectionManager } from './services/SyncDetectionManager';
 import {
-	MindMatrixSettings,
+	ObsidianRAGSettings,
 	DEFAULT_SETTINGS,
 	isVaultInitialized,
 	generateVaultId,
@@ -22,8 +22,8 @@ import {
 } from './settings/Settings';
 import { ProcessingTask, TaskType, TaskStatus } from './models/ProcessingTask';
 
-export default class MindMatrixPlugin extends Plugin {
-	settings: MindMatrixSettings;
+export default class ObsidianRAGPlugin extends Plugin {
+	settings: ObsidianRAGSettings;
 	private supabaseService: SupabaseService | null = null;
 	private openAIService: OpenAIService | null = null;
 	private queueService: QueueService | null = null;
@@ -42,12 +42,12 @@ export default class MindMatrixPlugin extends Plugin {
 	private eventsRegistered = false;
 
 	async onload() {
-		console.log('Loading Mind Matrix Plugin...');
+		console.log('Loading Obsidian RAG Plugin...');
 		try {
 			// Initialize status manager first
 			this.statusManager = new StatusManager(this.addStatusBarItem());
 			this.statusManager.setStatus(PluginStatus.INITIALIZING, {
-				message: 'Loading Mind Matrix Plugin...'
+				message: 'Loading Obsidian RAG Plugin...'
 			});
 
 			// Load settings
@@ -68,7 +68,7 @@ export default class MindMatrixPlugin extends Plugin {
 			this.registerEventHandlers();
 
 			// Add settings tab
-			this.addSettingTab(new MindMatrixSettingsTab(this.app, this));
+			this.addSettingTab(new ObsidianRAGSettingsTab(this.app, this));
 
 			if (isVaultInitialized(this.settings)) {
 				this.statusManager.setStatus(PluginStatus.WAITING_FOR_SYNC, {
@@ -85,7 +85,7 @@ export default class MindMatrixPlugin extends Plugin {
 				await this.completeInitialization();
 			}
 		} catch (error) {
-			console.error('Failed to initialize Mind Matrix Plugin:', error);
+			console.error('Failed to initialize Obsidian RAG Plugin:', error);
 			this.statusManager?.setStatus(PluginStatus.ERROR, {
 				message: 'Failed to initialize plugin. Check console for details.',
 				error: error as Error
@@ -105,7 +105,7 @@ export default class MindMatrixPlugin extends Plugin {
 					// Perform a quick integrity check with the database
 					const fileCount = await this.supabaseService.getFileCount();
 					if (fileCount > 0) {
-						console.log('[MindMatrix] Database contains files, skipping initial sync');
+						console.log('[ObsidianRAG] Database contains files, skipping initial sync');
 						await this.completeInitialization();
 						return;
 					}
@@ -137,7 +137,7 @@ export default class MindMatrixPlugin extends Plugin {
 
 			// Ensure FileTracker is initialized before registering event handlers
 			if (!this.fileTracker?.getInitializationStatus()) {
-				console.warn('[MindMatrix] FileTracker not initialized. Waiting for initialization...');
+				console.warn('[ObsidianRAG] FileTracker not initialized. Waiting for initialization...');
 				await new Promise<void>((resolve) => {
 					const checkInterval = setInterval(() => {
 						if (this.fileTracker?.getInitializationStatus()) {
@@ -158,7 +158,7 @@ export default class MindMatrixPlugin extends Plugin {
 			
 			// Update status to ready
 			this.statusManager?.setStatus(PluginStatus.READY, {
-				message: 'Mind Matrix is ready'
+				message: 'Obsidian RAG is ready'
 			});
 		} catch (error) {
 			console.error('Error completing initialization:', error);
@@ -170,7 +170,7 @@ export default class MindMatrixPlugin extends Plugin {
 	}
 
 	async onunload() {
-		console.log('Unloading Mind Matrix Plugin...');
+		console.log('Unloading Obsidian RAG Plugin...');
 		// Stop sync detection and clear any intervals/timeouts
 		this.syncDetectionManager?.stopMonitoring();
 		if (this.initializationTimeout) clearTimeout(this.initializationTimeout);
@@ -344,7 +344,7 @@ export default class MindMatrixPlugin extends Plugin {
 	}
 
 	private async initializeServices(): Promise<void> {
-		console.log('[MindMatrix] Initializing services...', {
+		console.log('[ObsidianRAG] Initializing services...', {
 			hasVault: !!this.app.vault,
 			hasErrorHandler: !!this.errorHandler
 		});
@@ -359,11 +359,11 @@ export default class MindMatrixPlugin extends Plugin {
 			if (!this.supabaseService) {
 				throw new Error('Failed to initialize Supabase service');
 			}
-			console.log('[MindMatrix] Supabase service initialized.');
+			console.log('[ObsidianRAG] Supabase service initialized.');
 
 			// Initialize OpenAI service
 			this.openAIService = new OpenAIService(this.settings.openai, this.errorHandler);
-			console.log('[MindMatrix] OpenAI service initialized.');
+			console.log('[ObsidianRAG] OpenAI service initialized.');
 
 			// Initialize QueueService
 			const notificationManager = this.notificationManager || new NotificationManager(
@@ -383,7 +383,7 @@ export default class MindMatrixPlugin extends Plugin {
 				this.settings.chunking
 			);
 			await this.queueService.start();
-			console.log('[MindMatrix] Queue service initialized and started.');
+			console.log('[ObsidianRAG] Queue service initialized and started.');
 
 			// Initialize FileTracker
 			this.fileTracker = new FileTracker(
@@ -393,11 +393,11 @@ export default class MindMatrixPlugin extends Plugin {
 				this.supabaseService
 			);
 			await this.fileTracker.initialize(this.settings, this.supabaseService, this.queueService);
-			console.log('[MindMatrix] FileTracker initialized.');
+			console.log('[ObsidianRAG] FileTracker initialized.');
 
 			// Initialize MetadataExtractor
 			this.metadataExtractor = new MetadataExtractor(this.app.vault, this.errorHandler);
-			console.log('[MindMatrix] MetadataExtractor initialized.');
+			console.log('[ObsidianRAG] MetadataExtractor initialized.');
 
 			// Initialize InitialSyncManager
 			if (!this.syncManager) {
@@ -437,10 +437,10 @@ export default class MindMatrixPlugin extends Plugin {
 					}
 				}
 			);
-			console.log('[MindMatrix] InitialSyncManager initialized.');
+			console.log('[ObsidianRAG] InitialSyncManager initialized.');
 		} catch (error) {
-			console.error('[MindMatrix] Error initializing services:', error);
-			this.errorHandler.handleError(error, { context: 'MindMatrixPlugin.initializeServices' });
+			console.error('[ObsidianRAG] Error initializing services:', error);
+			this.errorHandler.handleError(error, { context: 'ObsidianRAGPlugin.initializeServices' });
 			throw error;
 		}
 	}
@@ -456,7 +456,7 @@ export default class MindMatrixPlugin extends Plugin {
 
 	private registerEventHandlers() {
 		if (this.eventsRegistered) {
-			console.log('[MindMatrix] Event handlers already registered, skipping.');
+			console.log('[ObsidianRAG] Event handlers already registered, skipping.');
 			return;
 		}
 		this.eventsRegistered = true;

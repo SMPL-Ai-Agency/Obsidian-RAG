@@ -43,7 +43,7 @@ export class ErrorHandler {
 	constructor(settings: DebugSettings, vaultPath?: string) {
 		this.settings = settings;
 		if (settings.logToFile && vaultPath) {
-			this.logFilePath = `${vaultPath}/.obsidian/mind-matrix.log`;
+			this.logFilePath = `${vaultPath}/.obsidian/obsidian-rag.log`;
 		}
 	}
 

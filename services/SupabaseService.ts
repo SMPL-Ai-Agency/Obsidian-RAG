@@ -1,18 +1,18 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { FileStatusRecord, DocumentMetadata, DocumentChunk } from '../models/DocumentChunk';
-import { MindMatrixSettings, isVaultInitialized } from '../settings/Settings';
+import { ObsidianRAGSettings, isVaultInitialized } from '../settings/Settings';
 import { Notice } from 'obsidian';
 
 export class SupabaseService {
 	private client: SupabaseClient | null;
 	private static instance: SupabaseService | null = null;
-	private settings: MindMatrixSettings;
+	private settings: ObsidianRAGSettings;
 	private readonly TABLE_NAME = 'obsidian_documents';
 	private readonly FILE_STATUS_TABLE = 'obsidian_file_status';
 	// Track deletion operations for a given file to avoid concurrent deletes
 	private deleteOperationsInProgress: Map<string, boolean> = new Map();
 
-	private constructor(settings: MindMatrixSettings) {
+	private constructor(settings: ObsidianRAGSettings) {
 		if (!settings.supabase.url || !settings.supabase.apiKey) {
 			console.warn('Supabase configuration is incomplete. Supabase service will not be initialized.');
 			this.client = null;
@@ -25,7 +25,7 @@ export class SupabaseService {
 		this.client = createClient(settings.supabase.url, settings.supabase.apiKey);
 	}
 
-	public static async getInstance(settings: MindMatrixSettings): Promise<SupabaseService | null> {
+	public static async getInstance(settings: ObsidianRAGSettings): Promise<SupabaseService | null> {
 		if (!settings.supabase.url || !settings.supabase.apiKey) {
 			console.warn('Supabase configuration is incomplete. Returning null.');
 			return null;
@@ -563,7 +563,7 @@ export class SupabaseService {
          */
         public async getFileStatusIdByPath(filePath: string): Promise<number | null> {
                 if (!this.client) {
-                        console.warn('[MindMatrix] Supabase client not initialized while fetching file status id');
+                        console.warn('[ObsidianRAG] Supabase client not initialized while fetching file status id');
                         return null;
                 }
 
@@ -579,7 +579,7 @@ export class SupabaseService {
                                 if (error.code === 'PGRST116') {
                                         return null;
                                 }
-                                console.error('[MindMatrix] Error fetching file status id:', {
+                                console.error('[ObsidianRAG] Error fetching file status id:', {
                                         error,
                                         filePath,
                                         vaultId: this.settings?.vaultId
@@ -589,7 +589,7 @@ export class SupabaseService {
 
                         return data?.id ?? null;
                 } catch (error) {
-                        console.error('[MindMatrix] Unexpected error in getFileStatusIdByPath:', {
+                        console.error('[ObsidianRAG] Unexpected error in getFileStatusIdByPath:', {
                                 error,
                                 filePath,
                                 vaultId: this.settings?.vaultId
@@ -1103,7 +1103,7 @@ export class SupabaseService {
                         });
 
                         if (exclusionClauses.length === 0) {
-                                console.info('[MindMatrix] removeExcludedFiles called without exclusions; skipping removal.');
+                                console.info('[ObsidianRAG] removeExcludedFiles called without exclusions; skipping removal.');
                                 return 0;
                         }
 
@@ -1142,7 +1142,7 @@ export class SupabaseService {
 
 			return filePaths.length;
 		} catch (error) {
-			console.error('[MindMatrix] Error removing excluded files:', error);
+			console.error('[ObsidianRAG] Error removing excluded files:', error);
 			throw error;
 		}
 	}
@@ -1348,13 +1348,13 @@ export class SupabaseService {
 	 */
 	public async getFileStatus(filePath: string): Promise<FileStatusRecord | null> {
 		if (!this.client) {
-			console.warn('[MindMatrix] Supabase client not initialized');
+			console.warn('[ObsidianRAG] Supabase client not initialized');
 			return null;
 		}
 
 		try {
-			console.log(`[MindMatrix] Getting file status for path: ${filePath}`);
-			console.log(`[MindMatrix] Request details:`, {
+			console.log(`[ObsidianRAG] Getting file status for path: ${filePath}`);
+			console.log(`[ObsidianRAG] Request details:`, {
 				vaultId: this.settings?.vaultId,
 				filePath,
 				table: 'obsidian_file_status'
@@ -1368,7 +1368,7 @@ export class SupabaseService {
 				.single();
 
 			if (error) {
-				console.error(`[MindMatrix] Error getting file status:`, {
+				console.error(`[ObsidianRAG] Error getting file status:`, {
 					error,
 					code: error.code,
 					message: error.message,
@@ -1380,7 +1380,7 @@ export class SupabaseService {
 				throw error;
 			}
 
-			console.log(`[MindMatrix] File status response:`, {
+			console.log(`[ObsidianRAG] File status response:`, {
 				filePath,
 				data: data ? 'Found' : 'Not found',
 				recordId: data?.id
@@ -1388,7 +1388,7 @@ export class SupabaseService {
 
 			return data;
 		} catch (error) {
-			console.error(`[MindMatrix] Error in getFileStatus:`, {
+			console.error(`[ObsidianRAG] Error in getFileStatus:`, {
 				error,
 				filePath,
 				vaultId: this.settings?.vaultId,

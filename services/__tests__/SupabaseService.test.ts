@@ -1,5 +1,5 @@
 import { SupabaseService } from '@/services/SupabaseService';
-import { DEFAULT_SETTINGS, type MindMatrixSettings } from '@/settings/Settings';
+import { DEFAULT_SETTINGS, type ObsidianRAGSettings } from '@/settings/Settings';
 import { createClient } from '@supabase/supabase-js';
 
 type MockClient = {
@@ -16,7 +16,7 @@ jest.mock('@supabase/supabase-js', () => ({
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
 
-const baseSettings: MindMatrixSettings = {
+const baseSettings: ObsidianRAGSettings = {
         ...DEFAULT_SETTINGS,
         vaultId: 'vault-123',
         supabase: {
@@ -33,7 +33,7 @@ const baseSettings: MindMatrixSettings = {
         }
 };
 
-const createSettings = (): MindMatrixSettings => ({
+const createSettings = (): ObsidianRAGSettings => ({
         ...baseSettings,
         supabase: { ...baseSettings.supabase },
         exclusions: {

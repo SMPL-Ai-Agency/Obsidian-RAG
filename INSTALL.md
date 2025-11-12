@@ -16,14 +16,14 @@ Before you begin, ensure you have:
    #### Method 1: Through Obsidian (Recommended)
    - Open Obsidian Settings
    - Go to Community Plugins
-   - Search for "Mind Matrix"
+   - Search for "Obsidian RAG"
    - Click Install and Enable
 
    #### Method 2: Manual Installation
-   - Download the latest release from [GitHub Releases](https://github.com/yourusername/mindmatrix/releases)
+   - Download the latest release from [GitHub Releases](https://github.com/smpl-ai-automations/obsidian-rag/releases)
    - Extract the files to your vault's plugins directory:
      ```
-     .obsidian/plugins/mind-matrix/
+     .obsidian/plugins/obsidian-rag/
      ```
    - Restart Obsidian
    - Enable the plugin in Community Plugins settings
@@ -36,7 +36,7 @@ Before you begin, ensure you have:
    - Copy your Project URL
 
 3. **Configure the Plugin**
-   - Open Mind Matrix settings in Obsidian
+   - Open Obsidian RAG settings in Obsidian
    - Enter your Supabase credentials:
      - Project URL
      - Database Password
@@ -65,8 +65,8 @@ The inspiration for this plugin came from watching Nate Herk's YouTube video [St
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/mindmatrix.git
-   cd mindmatrix
+   git clone https://github.com/smpl-ai-automations/obsidian-rag.git
+   cd obsidian-rag
    ```
 
 2. **Install dependencies**

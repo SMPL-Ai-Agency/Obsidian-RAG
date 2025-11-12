@@ -1,16 +1,18 @@
-# Mind Matrix - Vector Database Sync for Obsidian
+# Obsidian RAG - Vector Database Sync for Obsidian
 
 ⚠️ **WARNING: This plugin is in early alpha stage. Please only use it with test vaults, not your primary vault.** ⚠️
 
-Mind Matrix is an Obsidian plugin that seamlessly synchronizes your notes with a Supabase vector database. By leveraging AI-powered embeddings and semantic search capabilities, it enables powerful knowledge retrieval and automation. Use it to build custom integrations, automate workflows with tools like n8n, and transform your personal knowledge base into a searchable, dynamic resource.
+Obsidian RAG is an Obsidian plugin that seamlessly synchronizes your notes with a Supabase vector database. By leveraging AI-powered embeddings and semantic search capabilities, it enables powerful knowledge retrieval and automation. Use it to build custom integrations, automate workflows with tools like n8n, and transform your personal knowledge base into a searchable, dynamic resource.
 
 I've built this to make my Obsidian vault searchable through AI tools. For example, I have a Telegram Bot set up that I can ask questions on-the-go, and it searches my vectorized vault data to provide answers. The n8n workflow integrates with Perplexity to augment my personal knowledge with external information when needed, creating a powerful knowledge assistant that travels with me.
+
+> Maintained by **George Freeney Jr.** and the **SMPL: Ai Automations** team ([https://smpl.ai](https://smpl.ai)).
 
 ---
 
 ## Overview
 
-Mind Matrix creates and maintains vector representations of your notes in a Supabase (PostgreSQL) database, allowing you to:
+Obsidian RAG creates and maintains vector representations of your notes in a Supabase (PostgreSQL) database, allowing you to:
 
 - Build powerful automation workflows using platforms like n8n.
 - Create semantic search applications using your personal knowledge.
@@ -93,8 +95,8 @@ For detailed task tracking and progress, see [TASKS.md](TASKS.md).
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/mind-matrix.git
-   cd mind-matrix
+   git clone https://github.com/smpl-ai-automations/obsidian-rag.git
+   cd obsidian-rag
    ```
 2. Install dependencies using yarn:
    ```bash
@@ -115,7 +117,7 @@ For detailed task tracking and progress, see [TASKS.md](TASKS.md).
 ### Project Structure
 
 ```
-mind-matrix/
+obsidian-rag/
 ├── src/
 │   ├── main.ts                    # Plugin entry point and lifecycle management
 │   ├── settings/
@@ -149,7 +151,7 @@ mind-matrix/
 
 ### Contributing
 
-We welcome contributions to improve Mind Matrix. To contribute:
+We welcome contributions to improve Obsidian RAG. To contribute:
 
 1. Fork the repository.
 2. Create a feature branch.
@@ -196,8 +198,9 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-- **Website**: [https://khw.io](https://khw.io)
-- **X/Twitter**: [@khwhahn](https://x.com/khwhahn)
+- **Organization**: [SMPL: Ai Automations](https://smpl.ai)
+- **Maintainer**: George Freeney Jr.
+- **GitHub**: [https://github.com/smpl-ai-automations](https://github.com/smpl-ai-automations)
 
 ## Development
 

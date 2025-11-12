@@ -118,7 +118,7 @@ export interface UpdateBehaviorSettings {
 /**
  * Main settings interface for the plugin
  */
-export interface MindMatrixSettings {
+export interface ObsidianRAGSettings {
 	// Vault identification
 	vaultId: string | null;      // Unique identifier for the vault
 	lastKnownVaultName: string;  // Last known name of the vault
@@ -198,15 +198,15 @@ export const SYSTEM_EXCLUSIONS = {
 	],
 	filePrefixes: ['_', '.'],   // Hidden and special files
 	files: [
-		'_mindmatrixsync.md',           // Sync file
-		'_mindmatrixsync.md.backup'     // Sync backup file
+		'_obsidianragsync.md',           // Sync file
+		'_obsidianragsync.md.backup'     // Sync backup file
 	]
 };
 
 /**
  * Default settings when plugin is first initialized
  */
-export const DEFAULT_SETTINGS: MindMatrixSettings = {
+export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
 	vaultId: null,
 	lastKnownVaultName: '',
 	supabase: {
@@ -247,7 +247,7 @@ export const DEFAULT_SETTINGS: MindMatrixSettings = {
 	enableNotifications: true,
 	enableProgressBar: true,
 	sync: {
-		syncFilePath: '_mindmatrixsync.md',
+		syncFilePath: '_obsidianragsync.md',
 		backupInterval: 3600000,  // 1 hour in milliseconds
 		checkInterval: 300000,    // 5 minutes in milliseconds
 		checkAttempts: 3,
@@ -279,7 +279,7 @@ export const DEFAULT_SETTINGS: MindMatrixSettings = {
  * Returns a combined list of all exclusions (system + user) used for processing.
  * Note: This function is used internally for file processing and combines both user-defined and system-level exclusions.
  */
-export function getAllExclusions(settings: MindMatrixSettings): {
+export function getAllExclusions(settings: ObsidianRAGSettings): {
 	excludedFolders: string[],
 	excludedFileTypes: string[],
 	excludedFilePrefixes: string[],
@@ -310,7 +310,7 @@ export function getAllExclusions(settings: MindMatrixSettings): {
  * Returns only the user-defined exclusions (without system-level defaults).
  * This helper can be used in UI components to ensure that system exclusions remain hidden.
  */
-export function getUserExclusions(settings: MindMatrixSettings): {
+export function getUserExclusions(settings: ObsidianRAGSettings): {
 	excludedFolders: string[],
 	excludedFileTypes: string[],
 	excludedFilePrefixes: string[],
@@ -328,7 +328,7 @@ export function getUserExclusions(settings: MindMatrixSettings): {
 /**
  * Type guard to check if a vault is initialized.
  */
-export function isVaultInitialized(settings: MindMatrixSettings): boolean {
+export function isVaultInitialized(settings: ObsidianRAGSettings): boolean {
 	return settings.vaultId !== null && settings.vaultId !== undefined && settings.vaultId !== '';
 }
 
