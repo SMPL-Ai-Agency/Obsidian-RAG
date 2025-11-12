@@ -4,18 +4,13 @@ import {
 	DocumentMetadata,
 	DocumentProcessingError,
 } from '../models/DocumentChunk';
-import { DEFAULT_CHUNKING_OPTIONS } from '../settings/Settings';
+import { DEFAULT_CHUNKING_OPTIONS, ChunkSettings, DebugSettings } from '../settings/Settings';
 import { MetadataExtractor } from '../services/MetadataExtractor';
 import { Vault, TFile } from 'obsidian';
 import { ErrorHandler } from './ErrorHandler';
-import { DebugSettings } from '../settings/Settings';
 
 export class TextSplitter {
-	private settings: {
-		chunkSize: number;
-		chunkOverlap: number;
-		minChunkSize: number;
-	};
+	private settings: ChunkSettings;
 	private metadataExtractor: MetadataExtractor;
 	// Regex patterns for splitting
 	private readonly SENTENCE_BOUNDARY = /[.!?]\s+/;
@@ -41,11 +36,28 @@ export class TextSplitter {
 	}
 
 	/** Returns the current chunking settings. */
-	public getSettings(): { chunkSize: number; chunkOverlap: number; minChunkSize: number } {
+	public getSettings(): ChunkSettings {
 		return this.settings;
 	}
 
-	private validateSettings(settings: { chunkSize: number; chunkOverlap: number; minChunkSize: number }): void {
+	/**
+	 * Updates the chunking settings with validation.
+	 */
+	public updateSettings(newSettings?: Partial<ChunkSettings>): void {
+		if (!newSettings || Object.keys(newSettings).length === 0) {
+			return;
+		}
+
+		const mergedSettings: ChunkSettings = {
+			...this.settings,
+			...newSettings,
+		};
+
+		this.validateSettings(mergedSettings);
+		this.settings = mergedSettings;
+	}
+
+	private validateSettings(settings: ChunkSettings): void {
 		if (settings.chunkSize <= 0) {
 			throw new Error('Chunk size must be greater than 0.');
 		}

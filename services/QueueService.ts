@@ -13,7 +13,7 @@ import { ErrorHandler } from '../utils/ErrorHandler';
 import { NotificationManager } from '../utils/NotificationManager';
 import { SupabaseService } from './SupabaseService';
 import { OpenAIService } from './OpenAIService';
-import { DEFAULT_CHUNKING_OPTIONS } from '../settings/Settings';
+import { DEFAULT_CHUNKING_OPTIONS, ChunkSettings } from '../settings/Settings';
 import { EventEmitter } from './EventEmitter';
 
 export class QueueService {
@@ -35,12 +35,15 @@ export class QueueService {
 		private errorHandler: ErrorHandler,
 		private notificationManager: NotificationManager,
 		vault: Vault,
-		chunkSettings?: { chunkSize: number; chunkOverlap: number; minChunkSize: number }
+		chunkSettings?: ChunkSettings
 	) {
 		this.vault = vault;
-		const validatedChunkSettings = chunkSettings || { ...DEFAULT_CHUNKING_OPTIONS };
+		const validatedChunkSettings: ChunkSettings = chunkSettings
+			? { ...chunkSettings }
+			: { ...DEFAULT_CHUNKING_OPTIONS };
 		try {
-			this.textSplitter = new TextSplitter(validatedChunkSettings);
+			this.textSplitter = new TextSplitter(this.vault, this.errorHandler);
+			this.textSplitter.updateSettings(validatedChunkSettings);
 		} catch (error) {
 			this.errorHandler.handleError(error, {
 				context: 'QueueService.constructor',
@@ -490,11 +493,11 @@ export class QueueService {
 		this.notificationManager.clear();
 	}
 
-	public updateSettings(settings: { maxConcurrent: number; maxRetries: number; chunkSettings?: { chunkSize: number; chunkOverlap: number; minChunkSize: number } }): void {
+	public updateSettings(settings: { maxConcurrent: number; maxRetries: number; chunkSettings?: ChunkSettings }): void {
 		this.maxConcurrent = settings.maxConcurrent;
 		this.maxRetries = settings.maxRetries;
 		if (settings.chunkSettings) {
-			this.textSplitter = new TextSplitter(settings.chunkSettings);
+			this.textSplitter.updateSettings(settings.chunkSettings);
 		}
 	}
 
