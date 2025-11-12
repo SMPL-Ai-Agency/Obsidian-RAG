@@ -139,17 +139,16 @@ export class SupabaseService {
 
 		try {
 			// First, get or create the file status record
-			const fileStatus: Partial<FileStatusRecord> = {
-				vault_id: this.settings.vaultId!,
-				file_path: obsidianId,
-				last_modified: chunks[0].metadata.lastModified,
-				last_vectorized: new Date().toISOString(),
-				content_hash: (chunks[0].metadata.customMetadata?.contentHash as string) || '',
-				status: 'vectorized',
-				tags: chunks[0].metadata.tags || [],
-				aliases: (chunks[0].metadata.customMetadata?.aliases as string[]) || [],
-				links: chunks[0].metadata.links || [],
-				updated_at: new Date().toISOString()
+                        const fileStatus: Partial<FileStatusRecord> = {
+                                vault_id: this.settings.vaultId!,
+                                file_path: obsidianId,
+                                last_modified: chunks[0].metadata.lastModified,
+                                content_hash: (chunks[0].metadata.customMetadata?.contentHash as string) || '',
+                                status: 'pending',
+                                tags: chunks[0].metadata.tags || [],
+                                aliases: (chunks[0].metadata.customMetadata?.aliases as string[]) || [],
+                                links: chunks[0].metadata.links || [],
+                                updated_at: new Date().toISOString()
 			};
 
 			// Upsert the file status record
@@ -331,12 +330,15 @@ export class SupabaseService {
 	 * Creates or updates a record in the obsidian_file_status table
 	 * to reflect the latest file status using provided metadata.
 	 */
-	public async updateFileVectorizationStatus(metadata: DocumentMetadata): Promise<void> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping updateFileVectorizationStatus.');
-			return;
-		}
-		try {
+        public async updateFileVectorizationStatus(
+                metadata: DocumentMetadata,
+                status: 'pending' | 'vectorized' = 'vectorized'
+        ): Promise<void> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping updateFileVectorizationStatus.');
+                        return;
+                }
+                try {
 			// Check if file status table exists
 			const { error: checkError } = await this.client
 				.from(this.FILE_STATUS_TABLE)
@@ -347,18 +349,19 @@ export class SupabaseService {
 				return;
 			}
 			// Construct a FileStatusRecord
-			const fileStatus: Partial<FileStatusRecord> = {
-				vault_id: this.settings.vaultId!,
-				file_path: metadata.obsidianId,
-				last_modified: metadata.lastModified,
-				last_vectorized: new Date().toISOString(),
-				content_hash: (metadata.customMetadata?.contentHash as string) || '',
-				status: 'vectorized', // Mark as successfully vectorized
-				tags: metadata.tags || [],
-				aliases: (metadata.customMetadata?.aliases as string[]) || [],
-				links: metadata.links || [],
-				updated_at: new Date().toISOString()
-			};
+                        const lastVectorized = status === 'vectorized' ? new Date().toISOString() : undefined;
+                        const fileStatus: Partial<FileStatusRecord> = {
+                                vault_id: this.settings.vaultId!,
+                                file_path: metadata.obsidianId,
+                                last_modified: metadata.lastModified,
+                                last_vectorized: lastVectorized,
+                                content_hash: (metadata.customMetadata?.contentHash as string) || '',
+                                status,
+                                tags: metadata.tags || [],
+                                aliases: (metadata.customMetadata?.aliases as string[]) || [],
+                                links: metadata.links || [],
+                                updated_at: new Date().toISOString()
+                        };
 			// Upsert the record into the file status table
 			const { error } = await this.client
 				.from(this.FILE_STATUS_TABLE)
