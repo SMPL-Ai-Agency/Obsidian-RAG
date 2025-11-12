@@ -277,11 +277,12 @@ export class QueueService {
                         task.completedAt = Date.now();
                         this.notifyProgress(task.id, 100, 'Task completed');
                         console.log('Task completed successfully:', task.id);
-			this.eventEmitter.emit('queue-progress', {
-				processed: 1,
-				total: this.queue.length + 1,
-				currentTask: task.id
-			});
+                        this.eventEmitter.emit('queue-progress', {
+                                processed: 1,
+                                total: this.queue.length + 1,
+                                currentTask: task.id
+                        });
+                        this.eventEmitter.emit('task-completed', { task });
                         this.resetBackoff();
                 } catch (error) {
                         console.error('Error processing task:', { taskId: task.id, error });
@@ -318,17 +319,17 @@ export class QueueService {
 			this.notifyProgress(task.id, 20, 'Splitting content');
 			const chunks = await this.textSplitter.splitDocument(content, task.metadata);
 			timings.chunkingComplete = Date.now();
-			if (!chunks || !Array.isArray(chunks) || chunks.length === 0) {
-				console.log('No valid chunks created for file:', {
-					fileId: task.id,
-					contentLength: content.length,
-					settings: this.textSplitter.getSettings()
-				});
-				if (this.supabaseService) {
-					await this.supabaseService.updateFileVectorizationStatus(task.metadata);
-				}
-				return;
-			}
+                        if (!chunks || !Array.isArray(chunks) || chunks.length === 0) {
+                                console.log('No valid chunks created for file:', {
+                                        fileId: task.id,
+                                        contentLength: content.length,
+                                        settings: this.textSplitter.getSettings()
+                                });
+                                if (this.supabaseService) {
+                                        await this.supabaseService.updateFileVectorizationStatus(task.metadata, 'vectorized');
+                                }
+                                return;
+                        }
 			console.log('Content split into chunks:', {
 				numberOfChunks: chunks.length,
 				chunkSizes: chunks.map(c => c.content.length),
@@ -375,19 +376,20 @@ export class QueueService {
 				}
 			}
 			timings.saveComplete = Date.now();
-			console.log('Chunks saved to database:', {
-				numberOfChunks: enhancedChunks.length,
-				fileId: task.id,
-				timings: {
-					total: timings.saveComplete - timings.start,
-					read: timings.readComplete - timings.start,
-					chunking: timings.chunkingComplete - timings.readComplete,
-					embedding: timings.embeddingComplete - timings.chunkingComplete,
-					save: timings.saveComplete - timings.embeddingComplete
-				}
-			});
-			this.notifyProgress(task.id, 100, 'Processing completed');
-		} catch (error) {
+                        console.log('Chunks saved to database:', {
+                                numberOfChunks: enhancedChunks.length,
+                                fileId: task.id,
+                                timings: {
+                                        total: timings.saveComplete - timings.start,
+                                        read: timings.readComplete - timings.start,
+                                        chunking: timings.chunkingComplete - timings.readComplete,
+                                        embedding: timings.embeddingComplete - timings.chunkingComplete,
+                                        save: timings.saveComplete - timings.embeddingComplete
+                                }
+                        });
+                        await this.supabaseService.updateFileVectorizationStatus(task.metadata, 'vectorized');
+                        this.notifyProgress(task.id, 100, 'Processing completed');
+                } catch (error) {
 			console.error('Error in processCreateUpdateTask:', { error, taskId: task.id, metadata: task.metadata });
 			throw error;
 		}
@@ -463,15 +465,16 @@ export class QueueService {
                         this.notifyProgress(task.id, 0, `Retry attempt ${task.retryCount}`);
                         console.log('Task queued for retry:', { taskId: task.id, retryCount: task.retryCount, maxRetries: this.maxRetries });
                 } else {
-			task.status = TaskStatus.FAILED;
-			task.error = {
-				message: error.message,
-				code: error.code || 'UNKNOWN_ERROR',
-				stack: error.stack,
-			};
-			task.completedAt = Date.now();
-			console.error('Task failed after max retries:', { taskId: task.id, error: task.error });
-		}
+                        task.status = TaskStatus.FAILED;
+                        task.error = {
+                                message: error.message,
+                                code: error.code || 'UNKNOWN_ERROR',
+                                stack: error.stack,
+                        };
+                        task.completedAt = Date.now();
+                        console.error('Task failed after max retries:', { taskId: task.id, error: task.error });
+                        this.eventEmitter.emit('task-failed', { task, error });
+                }
                 this.errorHandler.handleError(error, { context: 'QueueService.processTask', taskId: task.id, taskType: task.type });
                 this.eventEmitter.emit('queue-progress', { processed: 0, total: this.queue.length, currentTask: task.id });
                 this.incrementBackoff();
