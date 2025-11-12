@@ -39,6 +39,7 @@ export default class MindMatrixPlugin extends Plugin {
 	private metadataExtractor: MetadataExtractor | null = null;
 	private statusManager: StatusManager | null = null;
 	private syncDetectionManager: SyncDetectionManager | null = null;
+	private eventsRegistered = false;
 
 	async onload() {
 		console.log('Loading Mind Matrix Plugin...');
@@ -152,8 +153,7 @@ export default class MindMatrixPlugin extends Plugin {
 				});
 			}
 
-			// Register event handlers and commands
-			this.registerEventHandlers();
+			// Register commands after services are ready
 			this.addCommands();
 			
 			// Update status to ready
@@ -178,6 +178,7 @@ export default class MindMatrixPlugin extends Plugin {
 		this.queueService?.stop();
 		this.notificationManager?.clear();
 		this.initialSyncManager?.stop();
+		this.eventsRegistered = false;
 	}
 
 	private async startSyncProcess(): Promise<void> {
@@ -454,6 +455,11 @@ export default class MindMatrixPlugin extends Plugin {
 	}
 
 	private registerEventHandlers() {
+		if (this.eventsRegistered) {
+			console.log('[MindMatrix] Event handlers already registered, skipping.');
+			return;
+		}
+		this.eventsRegistered = true;
 		// Enhanced file event handlers with improved debouncing and logging
 
 		this.registerEvent(
