@@ -22,7 +22,8 @@ export class QueueService {
 	private isProcessing: boolean = false;
 	private isStopped: boolean = true;
 	private processingInterval: NodeJS.Timeout | null = null;
-	private textSplitter: TextSplitter;
+        private textSplitter: TextSplitter;
+        private chunkSettings: ChunkingOptions;
 	private vault: Vault;
 	// Event emitter for queue events
 	private eventEmitter: EventEmitter;
@@ -38,15 +39,16 @@ export class QueueService {
                 chunkSettings?: Partial<ChunkingOptions>
         ) {
                 this.vault = vault;
-                const validatedChunkSettings = {
+                const validatedChunkSettings: ChunkingOptions = {
                         ...DEFAULT_CHUNKING_OPTIONS,
                         ...chunkSettings,
                 };
+                this.chunkSettings = validatedChunkSettings;
                 try {
                         this.textSplitter = new TextSplitter(
                                 this.vault,
                                 this.errorHandler,
-                                chunkSettings
+                                validatedChunkSettings
                         );
                 } catch (error) {
                         this.errorHandler.handleError(error, {
@@ -515,11 +517,24 @@ export class QueueService {
                 this.maxConcurrent = settings.maxConcurrent;
                 this.maxRetries = settings.maxRetries;
                 if (settings.chunkSettings) {
-                        this.textSplitter = new TextSplitter(
-                                this.vault,
-                                this.errorHandler,
-                                settings.chunkSettings
-                        );
+                        const mergedChunkSettings: ChunkingOptions = {
+                                ...DEFAULT_CHUNKING_OPTIONS,
+                                ...settings.chunkSettings,
+                        };
+                        try {
+                                this.textSplitter = new TextSplitter(
+                                        this.vault,
+                                        this.errorHandler,
+                                        mergedChunkSettings
+                                );
+                                this.chunkSettings = mergedChunkSettings;
+                        } catch (error) {
+                                this.errorHandler.handleError(error, {
+                                        context: 'QueueService.updateSettings',
+                                        metadata: mergedChunkSettings,
+                                });
+                                throw new Error('Failed to update TextSplitter with provided settings.');
+                        }
                 }
         }
 
