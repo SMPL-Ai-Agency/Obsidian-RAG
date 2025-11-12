@@ -998,32 +998,81 @@ export class SupabaseService {
 	 * @param exclusions The exclusion patterns to check against
 	 * @returns The number of files removed
 	 */
-	async removeExcludedFiles(
-		vaultId: string,
-		exclusions: {
-			excludedFolders: string[];
-			excludedFileTypes: string[];
-			excludedFilePrefixes: string[];
-			excludedFiles: string[];
-		}
-	): Promise<number> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping removeExcludedFiles.');
-			return 0;
-		}
+        async removeExcludedFiles(
+                vaultId: string,
+                exclusions: {
+                        excludedFolders: string[];
+                        excludedFileTypes: string[];
+                        excludedFilePrefixes: string[];
+                        excludedFiles: string[];
+                }
+        ): Promise<number> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping removeExcludedFiles.');
+                        return 0;
+                }
 
-		try {
-			// First, find all files that match the exclusion patterns
-			const { data: filesToRemove, error: queryError } = await this.client
-				.from(this.FILE_STATUS_TABLE)
-				.select('file_path')
-				.eq('vault_id', vaultId)
-				.or(
-					exclusions.excludedFolders.map(folder => `file_path.ilike.${folder}%`).join(',') + ',' +
-					exclusions.excludedFileTypes.map(type => `file_path.ilike.%.${type}`).join(',') + ',' +
-					exclusions.excludedFilePrefixes.map(prefix => `file_path.ilike.${prefix}%`).join(',') + ',' +
-					exclusions.excludedFiles.map(file => `file_path.eq.${file}`).join(',')
-				);
+                try {
+                        const escapeLikeValue = (value: string): string =>
+                                value
+                                        .trim()
+                                        .replace(/\\/g, '\\\\')
+                                        .replace(/%/g, '\\%')
+                                        .replace(/_/g, '\\_')
+                                        .replace(/"/g, '\\"');
+
+                        const escapeEqualityValue = (value: string): string =>
+                                value.trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+                        const wrapInQuotes = (value: string): string => `"${value}"`;
+
+                        const exclusionClauses: string[] = [];
+
+                        const addClauses = (values: string[] | undefined, builder: (value: string) => string | null): void => {
+                                values
+                                        ?.map(value => value?.trim())
+                                        .filter((value): value is string => !!value)
+                                        .forEach(value => {
+                                                const clause = builder(value);
+                                                if (clause) {
+                                                        exclusionClauses.push(clause);
+                                                }
+                                        });
+                        };
+
+                        addClauses(exclusions.excludedFolders, folder => {
+                                const escaped = escapeLikeValue(folder);
+                                return escaped ? `file_path.ilike.${wrapInQuotes(`${escaped}%`)}` : null;
+                        });
+
+                        addClauses(exclusions.excludedFileTypes, type => {
+                                const normalized = type.replace(/^\./, '').toLowerCase();
+                                if (!normalized) return null;
+                                const escaped = escapeLikeValue(normalized);
+                                return `file_path.ilike.${wrapInQuotes(`%.${escaped}`)}`;
+                        });
+
+                        addClauses(exclusions.excludedFilePrefixes, prefix => {
+                                const escaped = escapeLikeValue(prefix);
+                                return escaped ? `file_path.ilike.${wrapInQuotes(`${escaped}%`)}` : null;
+                        });
+
+                        addClauses(exclusions.excludedFiles, file => {
+                                const escaped = escapeEqualityValue(file);
+                                return escaped ? `file_path.eq.${wrapInQuotes(escaped)}` : null;
+                        });
+
+                        if (exclusionClauses.length === 0) {
+                                console.info('[MindMatrix] removeExcludedFiles called without exclusions; skipping removal.');
+                                return 0;
+                        }
+
+                        // First, find all files that match the exclusion patterns
+                        const { data: filesToRemove, error: queryError } = await this.client
+                                .from(this.FILE_STATUS_TABLE)
+                                .select('file_path')
+                                .eq('vault_id', vaultId)
+                                .or(exclusionClauses.join(','));
 
 			if (queryError) throw queryError;
 
