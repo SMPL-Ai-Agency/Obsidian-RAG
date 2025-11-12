@@ -1,6 +1,6 @@
 // src/services/QueueService.ts
 import { Vault, TFile } from 'obsidian';
-import { TextSplitter } from '../utils/TextSplitter';
+import { TextSplitter, ChunkingOptions } from '../utils/TextSplitter';
 import {
 	ProcessingTask,
 	TaskStatus,
@@ -33,19 +33,26 @@ export class QueueService {
 		private supabaseService: SupabaseService | null,
 		private openAIService: OpenAIService | null,
 		private errorHandler: ErrorHandler,
-		private notificationManager: NotificationManager,
-		vault: Vault,
-		chunkSettings?: { chunkSize: number; chunkOverlap: number; minChunkSize: number }
-	) {
-		this.vault = vault;
-		const validatedChunkSettings = chunkSettings || { ...DEFAULT_CHUNKING_OPTIONS };
-		try {
-			this.textSplitter = new TextSplitter(validatedChunkSettings);
-		} catch (error) {
-			this.errorHandler.handleError(error, {
-				context: 'QueueService.constructor',
-				metadata: validatedChunkSettings,
-			});
+                private notificationManager: NotificationManager,
+                vault: Vault,
+                chunkSettings?: Partial<ChunkingOptions>
+        ) {
+                this.vault = vault;
+                const validatedChunkSettings = {
+                        ...DEFAULT_CHUNKING_OPTIONS,
+                        ...chunkSettings,
+                };
+                try {
+                        this.textSplitter = new TextSplitter(
+                                this.vault,
+                                this.errorHandler,
+                                chunkSettings
+                        );
+                } catch (error) {
+                        this.errorHandler.handleError(error, {
+                                context: 'QueueService.constructor',
+                                metadata: validatedChunkSettings,
+                        });
 			throw new Error('Failed to initialize TextSplitter with provided settings.');
 		}
 		this.eventEmitter = new EventEmitter();
@@ -490,13 +497,17 @@ export class QueueService {
 		this.notificationManager.clear();
 	}
 
-	public updateSettings(settings: { maxConcurrent: number; maxRetries: number; chunkSettings?: { chunkSize: number; chunkOverlap: number; minChunkSize: number } }): void {
-		this.maxConcurrent = settings.maxConcurrent;
-		this.maxRetries = settings.maxRetries;
-		if (settings.chunkSettings) {
-			this.textSplitter = new TextSplitter(settings.chunkSettings);
-		}
-	}
+        public updateSettings(settings: { maxConcurrent: number; maxRetries: number; chunkSettings?: Partial<ChunkingOptions> }): void {
+                this.maxConcurrent = settings.maxConcurrent;
+                this.maxRetries = settings.maxRetries;
+                if (settings.chunkSettings) {
+                        this.textSplitter = new TextSplitter(
+                                this.vault,
+                                this.errorHandler,
+                                settings.chunkSettings
+                        );
+                }
+        }
 
 	/**
 	 * Subscribe to queue events.
