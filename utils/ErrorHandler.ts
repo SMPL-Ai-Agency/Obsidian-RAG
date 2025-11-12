@@ -54,36 +54,62 @@ export class ErrorHandler {
 		if (!this.shouldLog(level)) {
 			return;
 		}
-		const errorLog: ErrorLog = {
-			timestamp: Date.now(),
-			error: this.normalizeError(error),
-			context,
-			level,
-			handled: false
-		};
-		this.errorLogs.unshift(errorLog);
+                const normalizedError = this.normalizeError(error);
+                const errorLog: ErrorLog = {
+                        timestamp: Date.now(),
+                        error: normalizedError,
+                        context,
+                        level,
+                        handled: false
+                };
+                this.errorLogs.unshift(errorLog);
 		if (this.errorLogs.length > this.maxLogs) {
 			this.errorLogs.pop();
 		}
 		// Show a notice for important errors.
-		if (level === 'error' || (level === 'warn' && this.settings.logLevel === 'debug')) {
-			new Notice(`Error: ${error.message}`);
-		}
-		// Debug logging.
-		if (this.settings.enableDebugLogs) {
-			console.group(`[${level.toUpperCase()}] ${context.context}`);
-			console.error('Error details:', error);
-			console.error('Context:', context);
-			if (error.stack) {
-				console.error('Stack trace:', error.stack);
-			}
-			console.groupEnd();
-		}
+                if (level === 'error' || (level === 'warn' && this.settings.logLevel === 'debug')) {
+                        const noticeMessage = this.buildNoticeMessage(errorLog);
+                        new Notice(noticeMessage);
+                }
+                // Debug logging.
+                if (this.settings.enableDebugLogs) {
+                        console.group(`[${level.toUpperCase()}] ${context.context}`);
+                        console.error('Error details:', normalizedError);
+                        console.error('Context:', context);
+                        if (normalizedError.stack) {
+                                console.error('Stack trace:', normalizedError.stack);
+                        }
+                        console.groupEnd();
+                }
 		// File logging if enabled.
-		if (this.settings.logToFile && this.logFilePath) {
-			this.writeToLogFile(errorLog);
-		}
-	}
+                if (this.settings.logToFile && this.logFilePath) {
+                        this.writeToLogFile(errorLog);
+                }
+        }
+
+        private buildNoticeMessage(errorLog: ErrorLog): string {
+                const baseMessage = errorLog.error?.message || 'Unknown error';
+                const metadataSegments: string[] = [];
+
+                if (errorLog.context.context) {
+                        metadataSegments.push(errorLog.context.context);
+                }
+                if (errorLog.context.taskType) {
+                        metadataSegments.push(`task: ${errorLog.context.taskType}`);
+                }
+                if (errorLog.context.taskId) {
+                        metadataSegments.push(`taskId: ${errorLog.context.taskId}`);
+                }
+                if (errorLog.context.metadata && Object.keys(errorLog.context.metadata).length > 0) {
+                        metadataSegments.push(`metadata: ${JSON.stringify(errorLog.context.metadata)}`);
+                }
+
+                if (metadataSegments.length === 0) {
+                        return `Error: ${baseMessage}`;
+                }
+
+                return `Error: ${baseMessage} (${metadataSegments.join(' | ')})`;
+        }
 
 	/**
 	 * Creates and handles a sync error.
