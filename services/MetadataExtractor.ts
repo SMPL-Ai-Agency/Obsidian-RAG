@@ -67,8 +67,11 @@ export class MetadataExtractor {
 		if (frontMatter) {
 			merged.frontMatter = frontMatter;
 			// Merge tags from front matter
-			if (frontMatter.tags) {
-				merged.tags = Array.isArray(frontMatter.tags) ? frontMatter.tags : [frontMatter.tags];
+                        if (frontMatter.tags) {
+                                const normalizedTags = this.normalizeFrontMatterTags(frontMatter.tags);
+                                if (normalizedTags.length > 0) {
+                                        merged.tags = normalizedTags;
+                                }
 			}
 			// Merge aliases into customMetadata
 			if (frontMatter.aliases) {
@@ -133,19 +136,43 @@ export class MetadataExtractor {
 		while ((match = tagRegex.exec(content)) !== null) {
 			tags.add(match[1]);
 		}
-		if (frontMatter?.tags) {
-			const frontMatterTags = Array.isArray(frontMatter.tags)
-				? frontMatter.tags
-				: [frontMatter.tags];
-			frontMatterTags.forEach(tag => {
-				if (typeof tag === 'string') {
-					const cleanTag = tag.startsWith('#') ? tag.slice(1) : tag;
-					tags.add(cleanTag);
-				}
-			});
-		}
-		return Array.from(tags);
-	}
+                if (frontMatter?.tags) {
+                        const frontMatterTags = this.normalizeFrontMatterTags(frontMatter.tags);
+                        frontMatterTags.forEach(tag => tags.add(tag));
+                }
+                return Array.from(tags);
+        }
+
+        /**
+         * Normalizes tags defined in front matter to a consistent array representation.
+         */
+        private normalizeFrontMatterTags(tags: unknown): string[] {
+                if (!tags) {
+                        return [];
+                }
+
+                const rawTags = Array.isArray(tags) ? tags : [tags];
+                const normalized = new Set<string>();
+
+                rawTags.forEach(tagValue => {
+                        if (typeof tagValue !== 'string') {
+                                return;
+                        }
+
+                        tagValue
+                                .split(',')
+                                .map(part => part.trim())
+                                .filter(part => part.length > 0)
+                                .forEach(part => {
+                                        const cleaned = part.startsWith('#') ? part.slice(1) : part;
+                                        if (cleaned.length > 0) {
+                                                normalized.add(cleaned);
+                                        }
+                                });
+                });
+
+                return Array.from(normalized);
+        }
 
 	/**
 	 * Extracts aliases from front matter.
