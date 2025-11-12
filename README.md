@@ -10,7 +10,8 @@ For example, create a **Telegram bot** that searches your vectorized notes and G
 ---
 
 ## Summary
-Obsidian RAG connects your Obsidian vaults to both a Supabase vector store and a Neo4j graph database to create a **Hybrid RAG (Retrieval-Augmented Generation)** system.  
+Obsidian RAG connects your Obsidian vaults to both a Supabase vector store and a Neo4j graph database to create a **Hybrid RAG (Retrieval-Augmented Generation)** system.
+
 It pairs **semantic embeddings** (for context-aware retrieval) with **graph relationships** (for linked knowledge and entity mapping), allowing your notes to power intelligent assistants, automations, and advanced search tools—all while preserving project separation and privacy.
 
 ---
@@ -165,7 +166,6 @@ Obsidian-RAG/
 ├── manifest.json
 └── README.md
 ```
-
 ### Contributing
 We welcome contributions to improve Obsidian RAG.  
 To contribute:
