@@ -1,3 +1,6 @@
+import type { ChunkSettings } from '../settings/Settings';
+export { DEFAULT_CHUNKING_OPTIONS } from '../settings/Settings';
+
 /**
  * DocumentChunk.ts
  * Represents metadata associated with a document chunk
@@ -44,20 +47,12 @@ export interface DocumentChunk {
 }
 
 /**
- * Configuration options for text chunking
+ * Canonical configuration options for text chunking.
+ * Re-exported here so downstream consumers can continue importing
+ * chunking types from the DocumentChunk module without duplicating
+ * settings definitions.
  */
-export interface ChunkingOptions {
-    // Maximum size of each chunk in characters
-    chunkSize: number;
-    // Minimum size of each chunk in characters
-    minChunkSize: number;
-    // Amount of overlap between chunks in characters
-    chunkOverlap: number;
-    // Whether to split on sentences when possible
-    splitOnSentences: boolean;
-    // Custom separator regex pattern (optional)
-    separator?: RegExp;
-}
+export type ChunkingOptions = ChunkSettings;
 
 /**
  * Response structure from OpenAI embeddings API
@@ -90,17 +85,6 @@ export enum DocumentProcessingError {
     VECTOR_EXTENSION_ERROR = 'VECTOR_EXTENSION_ERROR',
     SYNC_ERROR = 'SYNC_ERROR'
 }
-
-/**
- * Constants for chunking configuration
- */
-export const DEFAULT_CHUNKING_OPTIONS: ChunkingOptions = {
-    chunkSize: 1500,
-    minChunkSize: 100,
-    chunkOverlap: 200,
-    splitOnSentences: true,
-    separator: /[.!?]\s+/
-};
 
 /**
  * Utility type for database operations

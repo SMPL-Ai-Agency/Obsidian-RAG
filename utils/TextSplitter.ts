@@ -1,19 +1,15 @@
 //TextSplitter.ts
 import {
-	DocumentChunk,
-	DocumentMetadata,
-	DocumentProcessingError,
+DocumentChunk,
+DocumentMetadata,
+DocumentProcessingError,
 } from '../models/DocumentChunk';
-import { DEFAULT_CHUNKING_OPTIONS } from '../settings/Settings';
+import { DEFAULT_CHUNKING_OPTIONS, type ChunkSettings } from '../settings/Settings';
 import { MetadataExtractor } from '../services/MetadataExtractor';
 import { Vault, TFile } from 'obsidian';
 import { ErrorHandler } from './ErrorHandler';
 
-export type ChunkingOptions = {
-        chunkSize: number;
-        chunkOverlap: number;
-        minChunkSize: number;
-};
+export type ChunkingOptions = ChunkSettings;
 
 export class TextSplitter {
         private settings: ChunkingOptions;
