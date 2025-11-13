@@ -73,6 +73,7 @@ Obsidian-RAG uses Jest for unit and integration tests. Most suites live in `test
   yarn test:watch          # Watch mode for quicker iteration.
   ```
   `yarn test:watch` was verified locally with `--runTestsByPath tests/QueueService.delete.test.ts` and automatically re-ran the test file after edits, so you can pin the suites relevant to your changes while keeping watch mode responsive.
+  - **Do not remove `jest-environment-jsdom`**: `tests/NotificationManager.test.ts` declares `@jest-environment jsdom` so that DOM helpers like `HTMLElement` exist. Keep the `jest-environment-jsdom` dev dependency installed (run `yarn add -D jest-environment-jsdom` if it goes missing) or the suite will fail to start.
 
 - **Writing Tests**:
   - Focus on edge cases: offline syncs, retries, exclusions, Mode Preview reporting, and hybrid-mode fallbacks.
