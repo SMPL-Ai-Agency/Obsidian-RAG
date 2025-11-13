@@ -35,8 +35,40 @@ describe('ErrorHandler notices', () => {
 
                 expect(noticeArg).toContain('Task failed');
                 expect(noticeArg).toContain('Queue processor');
-                expect(noticeArg).toContain('task: sync');
-                expect(noticeArg).toContain('taskId: task-123');
-                expect(noticeArg).toContain('metadata: {"file":"note.md"}');
+                expect(noticeArg).toContain('Queue task error');
+
+                const [log] = handler.getRecentLogs();
+                expect(log.context.taskId).toBe('task-123');
+                expect(log.context.metadata).toEqual({ file: 'note.md' });
+        });
+});
+
+describe('ErrorHandler logging controls', () => {
+        const settings: DebugSettings = {
+                enableDebugLogs: false,
+                logLevel: 'debug',
+                logToFile: false,
+        };
+
+        beforeEach(() => {
+                (Notice as unknown as jest.Mock).mockClear();
+        });
+
+        it('skips warn-level logging when the configured log level is stricter', () => {
+                const handler = new ErrorHandler({ ...settings, logLevel: 'error' });
+                handler.handleError(new Error('warn-only'), { context: 'Queue' }, 'warn');
+
+                expect(handler.getRecentLogs()).toHaveLength(0);
+                expect(Notice as unknown as jest.Mock).not.toHaveBeenCalled();
+        });
+
+        it('categorizes database errors and stores friendly details', () => {
+                const handler = new ErrorHandler(settings);
+                handler.handleError(new Error('Database connection lost'), { context: 'SupabaseService.connect' });
+
+                const [log] = handler.getRecentLogs();
+                expect(log.category).toBe('database');
+                expect(log.friendlyMessage).toContain('Database request failed');
+                expect(Notice as unknown as jest.Mock).toHaveBeenCalledTimes(1);
         });
 });

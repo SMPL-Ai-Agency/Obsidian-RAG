@@ -57,7 +57,7 @@ Before you begin, ensure you have:
 ### Prerequisites
 
 Before you begin, ensure you have the following installed:
-- [Node.js](https://nodejs.org/) (v16 or higher)
+- [Node.js](https://nodejs.org/) (v18 or higher)
 - [Yarn](https://yarnpkg.com/) package manager
 - [PostgreSQL](https://www.postgresql.org/) (v14 or higher)
 - [jq](https://stedolan.github.io/jq/) (for password encoding)
@@ -79,9 +79,9 @@ The inspiration for this plugin came from watching Nate Herk's YouTube video [St
    ```
 
 3. **Set up environment variables**
-   - Copy `.env.test` to `.env`:
+   - Copy `.env.template` to `.env`:
      ```bash
-     cp .env.test .env
+     cp .env.template .env
      ```
    - Update the `.env` file with your Supabase credentials:
      ```
