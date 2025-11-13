@@ -36,16 +36,16 @@ Before you begin, ensure you have:
 
 2. **Set Up Supabase**
    - Create a new Supabase project at [supabase.com](https://supabase.com)
-   - Go to Project Settings > Database
-   - Copy your database password
-   - Go to Project Settings > API
-   - Copy your Project URL
+   - In **Project Settings → API**, copy the **Project URL** (this becomes the `Supabase URL` field in the plugin).
+   - In the same screen, copy the **Service Role API key** (labeled `service_role`). Obsidian RAG performs authenticated inserts/updates into `documents`, `obsidian_file_status`, and `entities`, so the anon key cannot bypass Row Level Security for those writes.
+   - *(Optional)* If you're also preparing local tooling, paste these values into [`SUPABASE_URL` and `SUPABASE_ANON_KEY` in `.env.template`](.env.template) so your CLI scripts match the plugin configuration.
+   - You do **not** need the database password for the in-app configuration—keep it for direct Postgres access or Makefile helpers only.
 
 3. **Configure the Plugin**
    - Open Obsidian RAG settings in Obsidian
    - Enter your Supabase credentials:
-     - Project URL
-     - Database Password
+     - **Supabase URL** (paste the Project URL you copied earlier)
+     - **Supabase API Key** (paste the `service_role` key)
    - Choose a **Sync Mode** under *Settings → Sync*:
      - **Supabase** – vectors only
      - **Neo4j** – graph only
