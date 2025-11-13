@@ -39,6 +39,9 @@
 - [x] **Debounce settings notices to avoid UI spam**
   - Every text field in `SettingsTab` fires `new Notice(...)` on each `onChange` keystroke (Supabase URL/API key, sync mode dropdown, etc.), which results in rapid toast spam while typing. Persist values silently (or debounce until blur/submit) so users can edit fields without dozens of notifications. 【F:settings/SettingsTab.ts†L84-L130】
 
+- [ ] **Keep the ingest-mode regression harness green**
+  - `tests/IngestModes.integration.test.ts` now verifies that Supabase-only, Neo4j-only, and Hybrid queue writes run in the correct order via the mocked vault utilities. Treat this suite as a release gate whenever touching `QueueService`, chunking, or the HybridRAG strategy so ingest regressions are caught before shipping.
+
 ## Important Note
 All implementation tasks must strictly follow the architecture design described in AGENTS.md
 
