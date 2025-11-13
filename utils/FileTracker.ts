@@ -75,7 +75,7 @@ export class FileTracker {
 			this.vaultId || '',
 			'device-' + Date.now(), // deviceId
 			'obsidian', // deviceName
-			'1.0.0' // pluginVersion
+                        '1.1.0-alpha' // pluginVersion
 		);
 		if (offlineQueueManager) {
 			this.offlineQueueManager = offlineQueueManager;
@@ -105,7 +105,7 @@ export class FileTracker {
 			this.vaultId || '',
 			'device-' + Date.now(), // deviceId
 			'obsidian', // deviceName
-			'1.0.0' // pluginVersion
+                        '1.1.0-alpha' // pluginVersion
 		);
 
 		try {

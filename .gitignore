@@ -78,3 +78,6 @@ main.js
 .local/
 
 **/.claude/settings.local.json
+
+# Release archives
+release/*.zip

@@ -110,109 +110,81 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 
                 // Sync Mode Section
                 containerEl.createEl('h2', { text: 'Sync Mode' });
-const hybridSettingsContainer = containerEl.createDiv('obsidian-rag-hybrid-settings');
+                const hybridSettingsContainer = containerEl.createDiv('obsidian-rag-hybrid-settings');
 
-new Setting(containerEl)
-.setName('Data Sync Mode')
-.setDesc('Choose which backend should be updated during sync operations.')
-.addDropdown(dropdown =>
-dropdown
-.addOption('supabase', 'Supabase (Vector)')
-.addOption('neo4j', 'Neo4j (Graph)')
-.addOption('hybrid', 'Hybrid (Both)')
-.setValue(this.settings.sync.mode || 'supabase')
-.onChange(async value => {
-this.settings.sync.mode = value as 'supabase' | 'neo4j' | 'hybrid';
-await this.plugin.saveSettings();
-new Notice('Sync mode updated.');
-this.updateHybridSettingsVisibility(hybridSettingsContainer);
+                new Setting(containerEl)
+                        .setName('Data Sync Mode')
+                        .setDesc('Choose which backend should be updated during sync operations.')
+                        .addDropdown(dropdown =>
+                                dropdown
+                                        .addOption('supabase', 'Supabase (Vector)')
+                                        .addOption('neo4j', 'Neo4j (Graph)')
+                                        .addOption('hybrid', 'Hybrid (Both)')
+                                        .setValue(this.settings.sync.mode || 'supabase')
+                                        .onChange(async (value) => {
+                                                this.settings.sync.mode = value as 'supabase' | 'neo4j' | 'hybrid';
+                                                await this.plugin.saveSettings();
+                                                new Notice('Sync mode updated.');
+                                                this.updateHybridSettingsVisibility(hybridSettingsContainer);
+                                        })
+                        );
 
-				// Recent Sync Activity Preview
-		containerEl.createEl('h2', { text: 'Recent Sync Activity' });
-		const previewSection = containerEl.createDiv('obsidian-rag-mode-summary');
-		const modeSummaries = this.plugin.getModePreviewSummaries();
-		if (modeSummaries.length === 0) {
-			previewSection.createEl('p', { text: 'No sync activity recorded yet. Trigger a sync to populate this preview.' });
-		} else {
-			modeSummaries.forEach(summary => {
-				const row = previewSection.createEl('div', { cls: 'obsidian-rag-mode-summary__row' });
-				row.createEl('span', { text: describeSyncMode(summary.mode) });
-				row.createEl('span', {
-					text: `${summary.successes} success${summary.successes === 1 ? '' : 'es'} / ${summary.failures} failure${summary.failures === 1 ? '' : 's'}`
-				});
-				if (summary.lastFile) {
-					row.createEl('span', { cls: 'obsidian-rag-mode-summary__file', text: summary.lastFile });
-				}
-			});
-			const recentList = previewSection.createEl('ul', { cls: 'obsidian-rag-mode-recent-list' });
-			this.plugin.getRecentSyncOutcomes(5).forEach(outcome => {
-				const item = recentList.createEl('li', { cls: `obsidian-rag-mode-recent is-${outcome.status}` });
-				item.createEl('span', { text: new Date(outcome.timestamp).toLocaleString() });
-				item.createEl('span', { text: `${describeSyncMode(outcome.mode)} · ${outcome.taskType}` });
-				item.createEl('span', { cls: 'obsidian-rag-mode-recent__file', text: outcome.filePath });
-			});
-		}
-		this.updateHybridSettingsVisibility(hybridSettingsContainer);
+                // Recent Sync Activity Preview
+                containerEl.createEl('h2', { text: 'Recent Sync Activity' });
+                const previewSection = containerEl.createDiv('obsidian-rag-mode-summary');
+                const modeSummaries = this.plugin.getModePreviewSummaries();
+                if (modeSummaries.length === 0) {
+                        previewSection.createEl('p', { text: 'No sync activity recorded yet. Trigger a sync to populate this preview.' });
+                } else {
+                        modeSummaries.forEach(summary => {
+                                const row = previewSection.createEl('div', { cls: 'obsidian-rag-mode-summary__row' });
+                                row.createEl('span', { text: describeSyncMode(summary.mode) });
+                                row.createEl('span', {
+                                        text: `${summary.successes} success${summary.successes === 1 ? '' : 'es'} / ${summary.failures} failure${summary.failures === 1 ? '' : 's'}`
+                                });
+                                if (summary.lastFile) {
+                                        row.createEl('span', { cls: 'obsidian-rag-mode-summary__file', text: summary.lastFile });
+                                }
+                        });
+                        const recentList = previewSection.createEl('ul', { cls: 'obsidian-rag-mode-recent-list' });
+                        this.plugin.getRecentSyncOutcomes(5).forEach(outcome => {
+                                const item = recentList.createEl('li', { cls: `obsidian-rag-mode-recent is-${outcome.status}` });
+                                item.createEl('span', { text: new Date(outcome.timestamp).toLocaleString() });
+                                item.createEl('span', { text: `${describeSyncMode(outcome.mode)} · ${outcome.taskType}` });
+                                item.createEl('span', { cls: 'obsidian-rag-mode-recent__file', text: outcome.filePath });
+                        });
+                }
 
+                new Setting(hybridSettingsContainer)
+                        .setName('Hybrid execution strategy')
+                        .setDesc('Control the order in which vector and graph updates run when hybrid mode is enabled.')
+                        .addDropdown(dropdown =>
+                                dropdown
+                                        .addOption('vector-first', 'Vectors first')
+                                        .addOption('graph-first', 'Graph first')
+                                        .addOption('parallel', 'Run in parallel')
+                                        .setValue(this.settings.sync.hybridStrategy.executionOrder)
+                                        .onChange(async (value) => {
+                                                this.settings.sync.hybridStrategy.executionOrder = value as 'vector-first' | 'graph-first' | 'parallel';
+                                                await this.plugin.saveSettings();
+                                                new Notice('Hybrid execution strategy updated.');
+                                        })
+                        );
 
-		// Recent Sync Activity Preview
-		containerEl.createEl('h2', { text: 'Recent Sync Activity' });
-		const previewSection = containerEl.createDiv('obsidian-rag-mode-summary');
-		const modeSummaries = this.plugin.getModePreviewSummaries();
-		if (modeSummaries.length === 0) {
-		previewSection.createEl('p', { text: 'No sync activity recorded yet. Trigger a sync to populate this preview.' });
-} else {
-		modeSummaries.forEach(summary => {
-			const row = previewSection.createEl('div', { cls: 'obsidian-rag-mode-summary__row' });
-			row.createEl('span', { text: describeSyncMode(summary.mode) });
-row.createEl('span', {
-text: `${summary.successes} success${summary.successes === 1 ? '' : 'es'} / ${summary.failures} failure${summary.failures === 1 ? '' : 's'}`
-});
-			if (summary.lastFile) {
-row.createEl('span', { cls: 'obsidian-rag-mode-summary__file', text: summary.lastFile });
-}
-});
-		const recentList = previewSection.createEl('ul', { cls: 'obsidian-rag-mode-recent-list' });
-		this.plugin.getRecentSyncOutcomes(5).forEach(outcome => {
-			const item = recentList.createEl('li', { cls: `obsidian-rag-mode-recent is-${outcome.status}` });
-			item.createEl('span', { text: new Date(outcome.timestamp).toLocaleString() });
-item.createEl('span', { text: `${describeSyncMode(outcome.mode)} · ${outcome.taskType}` });
-item.createEl('span', { cls: 'obsidian-rag-mode-recent__file', text: outcome.filePath });
-});
-}
-})
-);
+                new Setting(hybridSettingsContainer)
+                        .setName('Require dual writes in hybrid mode')
+                        .setDesc('When enabled, syncs will fail if either the vector store or graph database could not be updated.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.settings.sync.hybridStrategy.requireDualWrites)
+                                        .onChange(async (value) => {
+                                                this.settings.sync.hybridStrategy.requireDualWrites = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Hybrid enforcement preference updated.');
+                                        })
+                        );
 
-new Setting(hybridSettingsContainer)
-.setName('Hybrid execution strategy')
-.setDesc('Control the order in which vector and graph updates run when hybrid mode is enabled.')
-.addDropdown(dropdown =>
-dropdown
-.addOption('vector-first', 'Vectors first')
-.addOption('graph-first', 'Graph first')
-.addOption('parallel', 'Run in parallel')
-.setValue(this.settings.sync.hybridStrategy.executionOrder)
-.onChange(async value => {
-this.settings.sync.hybridStrategy.executionOrder = value as 'vector-first' | 'graph-first' | 'parallel';
-await this.plugin.saveSettings();
-new Notice('Hybrid execution strategy updated.');
-})
-);
-
-new Setting(hybridSettingsContainer)
-.setName('Require dual writes in hybrid mode')
-.setDesc('When enabled, syncs will fail if either the vector store or graph database could not be updated.')
-.addToggle(toggle =>
-toggle
-.setValue(this.settings.sync.hybridStrategy.requireDualWrites)
-.onChange(async value => {
-this.settings.sync.hybridStrategy.requireDualWrites = value;
-await this.plugin.saveSettings();
-new Notice('Hybrid enforcement preference updated.');
-})
-);
-
-this.updateHybridSettingsVisibility(hybridSettingsContainer);
+                this.updateHybridSettingsVisibility(hybridSettingsContainer);
 
                 // Neo4j Settings Section
                 containerEl.createEl('h2', { text: 'Neo4j Configuration' });

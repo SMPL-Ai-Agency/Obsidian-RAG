@@ -1,6 +1,6 @@
 {
   "name": "obsidian-rag",
-  "version": "1.0.0",
+  "version": "1.1.0-alpha",
   "description": "Enhance your Obsidian experience by seamlessly syncing your notes with a Supabase vector database. Obsidian RAG leverages AI-powered embeddings for semantic search, robust offline support, and cross-device coordination, ensuring your personal knowledge base is always accessible and intelligently organized.",
   "main": "main.js",
   "scripts": {

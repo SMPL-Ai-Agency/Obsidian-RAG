@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- _No changes yet._
+
+## [1.1.0-alpha] - 2025-11-13
+
 ### Added
 - Neo4j graph sync integration with configurable `project_name` isolation plus a Hybrid mode that writes to Supabase and Neo4j in lockstep.
 - Automated multi-vault tests that verify Supabase `vault_id` separation and Neo4j `project_name` scoping.
