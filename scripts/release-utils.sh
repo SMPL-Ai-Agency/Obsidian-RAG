@@ -158,7 +158,46 @@ run_tests() {
         return 1
     fi
 
-    log_success "Lint, test, and build steps completed"
+    log_info "Regenerating API docs (yarn docs)"
+    if ! yarn docs; then
+        log_error "API docs generation failed"
+        return 1
+    fi
+
+    log_success "Lint, test, build, and docs steps completed"
+}
+
+package_release_artifact() {
+    local version=$1
+    if [ -z "$version" ]; then
+        log_error "package_release_artifact requires the release version"
+        exit 1
+    fi
+
+    local release_dir="release"
+    local archive_path="$release_dir/obsidian-rag-$version.zip"
+
+    mkdir -p "$release_dir"
+
+    for asset in main.js manifest.json styles.css; do
+        if [ ! -f "$asset" ]; then
+            log_error "Required asset '$asset' missing. Run yarn build first."
+            exit 1
+        fi
+    done
+
+    log_info "Packaging runtime assets into $archive_path"
+    rm -f "$archive_path"
+    if ! zip -j "$archive_path" main.js manifest.json styles.css >/dev/null; then
+        log_error "Failed to create archive $archive_path"
+        exit 1
+    fi
+
+    if git rev-parse --git-dir >/dev/null 2>&1; then
+        git add -N -f "$archive_path" >/dev/null 2>&1 || true
+    fi
+
+    log_success "Created release archive at $archive_path"
 }
 
 # Create git tag and push changes
@@ -174,4 +213,4 @@ create_tag() {
 # Export all functions
 export -f log_info log_success log_warning log_error
 export -f check_clean_working_dir check_main_branch get_current_version
-export -f bump_version generate_changelog run_tests create_tag 
+export -f bump_version generate_changelog run_tests package_release_artifact create_tag

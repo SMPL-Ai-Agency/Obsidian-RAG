@@ -1,0 +1,222 @@
+<!DOCTYPE html><html class="default" lang="en"><head><meta charSet="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>Obsidian RAG API</title><meta name="description" content="Documentation for Obsidian RAG API"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar"><div class="tsd-toolbar-contents container"><div class="table-cell" id="tsd-search" data-base="."><div class="field"><label for="tsd-search-field" class="tsd-widget tsd-toolbar-icon search no-caption"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><use href="assets/icons.svg#icon-search"></use></svg></label><input type="text" id="tsd-search-field" aria-label="Search"/></div><div class="field"><div id="tsd-toolbar-links"></div></div><ul class="results"><li class="state loading">Preparing search index...</li><li class="state failure">The search index is not available</li></ul><a href="index.html" class="title">Obsidian RAG API</a></div><div class="table-cell" id="tsd-widgets"><a href="#" class="tsd-widget tsd-toolbar-icon menu no-caption" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></div></header><div class="container container-main"><div class="col-content"><div class="tsd-page-title"><h2>Obsidian RAG API</h2></div><div class="tsd-panel tsd-typography"><a id="md:obsidian-rag" class="tsd-anchor"></a><h2><a href="#md:obsidian-rag">Obsidian RAG</a></h2><a id="md:a-customizable-obsidian-hybrid-rag-plugin-for-obsidian-notes" class="tsd-anchor"></a><h3><a href="#md:a-customizable-obsidian-hybrid-rag-plugin-for-obsidian-notes">A Customizable Obsidian Hybrid RAG Plugin for Obsidian Notes</a></h3><p><strong>Created by <a href="https://github.com/GeorgeFreeneyJr">George Freeney Jr.</a></strong><br><strong>Maintained by <a href="https://github.com/SMPL-Ai-Agency">SMPL: Ai Automations</a></strong>  </p>
+<p>Obsidian RAG is a fork of the <a href="https://github.com/khwerhahn/MindMatrix">MindMatrix</a> Obsidian plugin.<br>It synchronizes your notes with a <strong>Supabase vector store</strong> and <strong>Neo4j graph database</strong> to create a Hybrid RAG system for AI automation platforms and large language models (LLMs) such as AI assistants.</p>
+<p>It prioritizes <strong>Ollama-powered embeddings</strong> (local or cloud-hosted) for privacy and cost efficiency, with optional support for <strong>OpenAI API</strong> and compatible models.</p>
+<p>This enables efficient knowledge retrieval and automation across multiple vaults. Build custom integrations, automate workflows with <strong>n8n</strong>, and turn your Second Brain into a dynamic, searchable resource accessible through AI tools — without mixing content between projects.</p>
+<blockquote>
+<p><strong>Ingestion-only design:</strong> Obsidian RAG focuses on safely ingesting and synchronizing notes into Supabase and Neo4j. You bring your own n8n workflows, chat bots, or API clients to query those stores.</p>
+</blockquote>
+<p>For example, create a <strong>Telegram bot</strong> that searches your vectorized notes and GraphRAG entities in Neo4j for answers.<br>An <strong>n8n workflow</strong> can integrate Perplexity or other search APIs to blend your personal knowledge with external data, delivering a portable, intelligent assistant.  </p>
+<hr>
+<a id="md:summary" class="tsd-anchor"></a><h2><a href="#md:summary">Summary</a></h2><p>Obsidian RAG connects your Obsidian vaults to both a Supabase vector store and a Neo4j graph database to create a <strong>Hybrid RAG (Retrieval-Augmented Generation)</strong> system.  </p>
+<p>It pairs <strong>semantic embeddings</strong> (for context-aware retrieval) with <strong>graph relationships</strong> (for linked knowledge and entity mapping), allowing your notes to power intelligent assistants, automations, and advanced search tools — all while preserving project separation and privacy.</p>
+<hr>
+<a id="md:plugin-features" class="tsd-anchor"></a><h2><a href="#md:plugin-features">Plugin Features</a></h2><p>These are the built-in mechanisms and core behaviors the plugin implements.</p>
+<ul>
+<li><strong>Automatic note synchronization:</strong> Detects new, edited, or deleted notes and syncs them in near-real-time to <strong>Supabase (vector)</strong> and <strong>Neo4j (graph)</strong>.  </li>
+<li><strong>Embedding generation service:</strong> Uses <strong>Ollama by default</strong> for embeddings, with optional <strong>OpenAI-compatible</strong> models.</li>
+<li><strong>Embedding response cache:</strong> Stores normalized embeddings in local storage so unchanged chunks skip redundant Ollama/OpenAI requests and speed up queue runs.</li>
+<li><strong>Embedding cache controls:</strong> Tune the TTL (1–168 hours) directly in the plugin settings so large vaults can prioritize fewer recomputes while smaller ones keep the cache fresher.</li>
+<li><strong>Graph construction engine:</strong> Builds Neo4j nodes and relationships for notes, tags, and entities — enabling GraphRAG-style semantic-graph queries.</li>
+<li><strong>LLM-powered entity extraction:</strong> Optional entity/relationship mining driven by Ollama/OpenAI prompts, complete with Supabase entity vectors and Neo4j relationship weights.</li>
+<li><strong>Queue and task management:</strong> Handles sync jobs, retries, and parallel processing via an internal queue.  </li>
+<li><strong>Offline queue and reconciliation:</strong> Stores unsent tasks locally, deduplicates retries, and surfaces clear notices before rerunning them once reconnected.</li>
+<li><strong>Configurable exclusions:</strong> Lets you exclude folders/files (e.g., templates, private journals, daily logs).  </li>
+<li><strong>Database setup automation:</strong> Initializes Supabase tables, vector indexes, and Neo4j schemas automatically on first run.  </li>
+<li><strong>Connection status and error handling:</strong> Displays status indicators, recovers gracefully, and retries failures.  </li>
+<li><strong>Progress tracking and notifications:</strong> Shows in-app progress and sync alerts.</li>
+<li><strong>Cross-device sync management:</strong> Uses a unified sync-state file to keep multiple devices consistent.</li>
+<li><strong>Mode-aware synchronization:</strong> Toggle Supabase-only (vector), Neo4j-only (graph), or Hybrid writes with automatic offline detection and recovery logic.</li>
+<li><strong>Extensible architecture:</strong> Built with modular TypeScript services (<code>EmbeddingService</code>, <code>QueueService</code>, <code>SupabaseService</code>, etc.).</li>
+<li><strong>n8n-ready metadata:</strong> Chunk metadata (see <code>models/DocumentChunk.ts</code>) includes <code>file_id</code>, source paths, and line numbers so n8n and other automations can correlate results back to the originating note without extra lookups.</li>
+<li><strong>Developer utilities:</strong> Helper scripts for queries, resets, and release automation.</li>
+</ul>
+<hr>
+<a id="md:use-cases" class="tsd-anchor"></a><h2><a href="#md:use-cases">Use Cases</a></h2><p>Once configured, Obsidian RAG lets you automate and extend your knowledge base:</p>
+<ul>
+<li><strong>Sync multiple vaults safely:</strong> Keep “Research,” “Business,” and “Personal” vaults independent while syncing to Supabase and Neo4j — no cross-project mixing.  </li>
+<li><strong>Semantic search and retrieval:</strong> Ask natural-language questions using meaning-based search powered by <strong>Ollama</strong> (local or cloud) with optional <strong>OpenAI-compatible APIs</strong>.  </li>
+<li><strong>Graph-based knowledge exploration:</strong> Visualize and navigate relationships between notes, tags, people, and topics in <strong>Neo4j</strong> for connected thinking and research.  </li>
+<li><strong>Automated workflows with n8n:</strong> Run semantic and graph queries —or hybrid RAG + GraphRAG searches — and send results to <strong>Telegram</strong>, <strong>Discord</strong>, or dashboards.  </li>
+<li><strong>Build custom AI assistants:</strong> Combine your private notes with external sources (e.g., <strong>Perplexity</strong>, web APIs) to create knowledge-driven agents.  </li>
+<li><strong>Local-first privacy mode:</strong> Run embeddings and databases entirely offline for full data control.  </li>
+<li><strong>Cross-device synchronization:</strong> Keep notes and metadata consistent via a shared <strong>sync state file</strong>.  </li>
+<li><strong>Offline operation:</strong> Continue editing offline — updates queue locally and sync on reconnect.</li>
+</ul>
+<hr>
+<a id="md:advanced-entity-extraction-optional" class="tsd-anchor"></a><h2><a href="#md:advanced-entity-extraction-optional">Advanced Entity Extraction (optional)</a></h2><p>The <strong>LLM &amp; Entity Extraction</strong> section in the plugin settings enables a semantic pipeline that:</p>
+<ul>
+<li>Prompts Ollama (preferred) or OpenAI with a dedicated LLM model (<code>Settings → LLM model</code>) to extract entities with descriptions.</li>
+<li>Queues multiple “gleaning” passes so difficult entities can be re-requested with iterative hints.</li>
+<li>Applies user-defined regex hints before LLM calls so critical patterns are always captured.</li>
+<li>Embeds each entity and stores it in a new <code>entities</code> table inside Supabase for similarity search and deduplication.</li>
+<li>Mirrors those entities and their inferred relationships (weights, keywords, descriptions) into Neo4j via the new <code>GraphBuilder</code> service.</li>
+<li>Streams a compact <strong>entity preview overlay</strong> inside the Obsidian status bar (NotificationManager) so you can validate the latest extracted nodes and relationships without opening external dashboards.</li>
+<li>Adds an inline <strong>“Open note”</strong> action to jump directly from the overlay to the source note when you want to audit the highlighted entities.</li>
+</ul>
+<blockquote>
+<p><strong>Tip:</strong> Install a generative Ollama model (e.g., <code>ollama pull llama3</code>) before enabling this feature so prompts and embeddings can stay local. The plugin falls back to OpenAI-compatible chat models when Ollama is unavailable.</p>
+</blockquote>
+<p>Entity extraction runs automatically after each note sync and respects your existing <code>project_name</code> isolation, meaning each vault keeps its own scoped entity vectors and graph nodes.</p>
+<hr>
+<a id="md:command-palette-controls" class="tsd-anchor"></a><h2><a href="#md:command-palette-controls">Command Palette Controls</a></h2><p>Each vault can be managed directly from the Obsidian command palette. These commands map 1:1 with the plugin logic in <code>main.ts</code>:</p>
+<ul>
+<li><strong>Force sync current file</strong> — Immediately queues the active note for processing (uses <code>queueFileProcessing</code>).</li>
+<li><strong>Force sync all files</strong> — Iterates through every markdown file and enqueues allowed ones for updates.</li>
+<li><strong>Clear sync queue</strong> — Flushes pending tasks from <code>QueueService</code>.</li>
+<li><strong>Reset file tracker cache</strong> — Rebuilds the cached metadata used for change detection.</li>
+<li><strong>Start / Stop initial vault sync</strong> — Manually start or cancel the bulk <code>InitialSyncManager</code> flow.</li>
+<li><strong>Show recent sync graph overlay</strong> — Opens the overlay fed by <code>recordSyncOutcome</code> so you can confirm recent successes/failures.</li>
+</ul>
+<p>Use these actions after changing settings, performing maintenance, or when you want to verify that ingestion is healthy before triggering downstream automations (n8n, Telegram bots, etc.).</p>
+<hr>
+<a id="md:sync-modes-amp-hybrid-workflows" class="tsd-anchor"></a><h2><a href="#md:sync-modes-amp-hybrid-workflows">Sync Modes &amp; Hybrid Workflows</a></h2><p>Obsidian RAG can be pointed at one or both backends depending on what you are building:</p>
+<ul>
+<li><strong>Supabase mode (Vector):</strong> Generates embeddings and writes to the shared <code>documents</code> table (scoped by <code>project_name</code>). Ideal when you just need semantic search or when Neo4j is temporarily offline.</li>
+<li><strong>Neo4j mode (Graph):</strong> Skips embedding generation and only upserts entities/relationships into Neo4j using your configured <code>project_name</code> to keep vaults isolated.</li>
+<li><strong>Hybrid mode:</strong> Runs both stages sequentially (vector-first by default) or according to the execution order defined in <strong>Settings → Sync → Hybrid strategy</strong>. Writes are considered successful only when both services acknowledge them, preventing split-brain states.</li>
+</ul>
+<p>The queue detects offline states per mode: Supabase mode pauses when either Supabase or the embedding provider is missing, Neo4j mode only cares about the graph connection, and Hybrid requires both. Once the missing service comes back online, tasks resume automatically so every vault stays isolated and up to date.</p>
+<p>Pair Hybrid mode with n8n workflows to run <strong>vector + graph</strong> lookups in a single automation: query Supabase for candidate chunks, then enrich answers with graph context from Neo4j for richer assistants.</p>
+<a id="md:manual-offline-queue-recovery-runbook" class="tsd-anchor"></a><h3><a href="#md:manual-offline-queue-recovery-runbook">Manual Offline Queue Recovery Runbook</a></h3><p>The offline queue is always on guard for outages, but there are times when you want to inspect and replay it manually (e.g., before a release gate or after an ISP hiccup). Use the following checklist:</p>
+<ol>
+<li><strong>Enable the queue via settings:</strong> Open <code>Settings → Sync</code> and confirm <code>sync.offlineQueueEnabled</code> is <code>true</code>. Vault owners can also set the flag directly inside <code>.obsidian/plugins/obsidian-rag/data.json</code> before launching Obsidian to ensure queueing is active on cold start.</li>
+<li><strong>Inspect queued operations:</strong> In Obsidian’s developer tools console (<code>Cmd/Ctrl+Opt+I</code>), run <code>JSON.parse(window.localStorage.getItem(&#39;obsidian-rag-offline-queue&#39;) ?? &#39;[]&#39;)</code> to review the serialized operations, timestamps, and retry counts persisted under that key. Filter the array for the affected file IDs before attempting a replay.</li>
+<li><strong>Manually trigger reconciliation:</strong> Still in the console, grab the plugin instance via <code>const plugin = app.plugins.plugins[&#39;obsidian-rag&#39;]; const manager = plugin?.fileTracker?.offlineQueueManager;</code> and call <code>await manager?.processQueue();</code> whenever you want to flush the queue on demand. This uses the same <code>processQueue()</code> logic that automatically runs when connectivity returns.</li>
+<li><strong>Interpret Notices when Supabase remains offline:</strong> Each failed attempt surfaces <code>Offline operation failed for file &lt;path&gt;: &lt;reason&gt;</code> via Obsidian’s <code>Notice</code> system. Repeated notices indicate Supabase (or your vector endpoint) is still unreachable; keep the queue paused until the message changes to the success logs in the console.</li>
+</ol>
+<hr>
+<a id="md:installation" class="tsd-anchor"></a><h2><a href="#md:installation">Installation</a></h2><p>See <a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md">INSTALL.md</a> for details:</p>
+<ul>
+<li>Setting up Supabase with SQL</li>
+<li>Configuring Ollama or OpenAI credentials</li>
+<li>Plugin installation and configuration</li>
+<li>n8n workflow examples (e.g., Telegram bot)</li>
+<li>Advanced troubleshooting</li>
+</ul>
+<a id="md:supabase-schema-automation" class="tsd-anchor"></a><h3><a href="#md:supabase-schema-automation">Supabase schema automation</a></h3><ul>
+<li>Run <a href="sql/setup.sql"><code>sql/setup.sql</code></a> (or <code>make setup-db</code>) once to provision the shared <code>documents</code> table, indexes, and helper policies for your Supabase project.</li>
+<li>If your Supabase region isn&#39;t encoded in <code>SUPABASE_URL</code>, set <code>SUPABASE_DB_REGION</code> (or the full <code>SUPABASE_DB_HOST</code>) in <code>.env</code> so the Makefile targets can derive the correct <code>aws-0-&lt;region&gt;.pooler.supabase.com</code> hostname.</li>
+<li>The plugin now auto-creates the <code>obsidian_file_status</code> and <code>entities</code> tables the first time Supabase reports &quot;relation does not exist,&quot; reusing the exact SQL from <code>sql/setup.sql</code> so the schema never drifts between manual and automated installs.</li>
+<li>If your Supabase project does not expose the <code>execute_sql</code> RPC, the plugin falls back to the REST endpoint and then surfaces an actionable error telling you to paste the block from <code>sql/setup.sql</code> into the SQL editor (or run the Makefile target) to finish setup.</li>
+</ul>
+<a id="md:neo4j-setup-overview" class="tsd-anchor"></a><h3><a href="#md:neo4j-setup-overview">Neo4j Setup Overview</a></h3><ol>
+<li>Start a Neo4j 5.x database locally (Desktop, Docker, etc.) or provision an Aura instance.</li>
+<li>Copy the <strong>Bolt URL</strong>, <strong>username</strong>, <strong>password</strong>, and optional database name.</li>
+<li>Pick a unique <code>project_name</code> for each vault (<code>Settings → Neo4j</code>) so graph nodes remain isolated.</li>
+<li>Paste those values into the plugin settings (or your <code>.env</code> for CLI scripts). The plugin will create the required constraints automatically during the first sync.</li>
+</ol>
+<hr>
+<a id="md:project-status" class="tsd-anchor"></a><h2><a href="#md:project-status">Project Status</a></h2><a id="md:completed-✅" class="tsd-anchor"></a><h3><a href="#md:completed-✅">Completed ✅</a></h3><ul>
+<li>Core database setup and configuration</li>
+<li>Development environment setup</li>
+<li>Basic plugin functionality</li>
+<li>File synchronization system</li>
+<li>Initial UI</li>
+</ul>
+<p><strong>Database Connection &amp; Setup</strong></p>
+<ul>
+<li>Connection testing and status indicators</li>
+<li>Table and index automation</li>
+<li>Database reset and error handling</li>
+</ul>
+<p><strong>Core Services</strong></p>
+<ul>
+<li>SupabaseService (operations)</li>
+<li>EmbeddingService (embeddings)</li>
+<li>QueueService (tasks)</li>
+<li>SyncManager (file management)</li>
+<li>EventEmitter system</li>
+<li>StatusManager (progress)</li>
+<li>SyncDetectionManager</li>
+<li>InitialSyncManager (batch processing)</li>
+</ul>
+<p><strong>Quality &amp; Reliability Improvements</strong></p>
+<ul>
+<li>Documentation (README/INSTALL) refreshed to reflect current setup, sync, and workflow guidance.</li>
+<li>Supabase delete pipeline now resolves <code>file_status_id</code> records before removing chunks to prevent ID mismatches.</li>
+<li>Vault event handlers are registered once per session via an <code>eventsRegistered</code> guard to avoid duplicate listeners.</li>
+<li><code>TextSplitter</code> rebuild handles YAML metadata extraction, overlap, and abort support for consistent chunking.</li>
+<li><code>removeExcludedFiles</code> purges both file status rows and chunk records that match the configured exclusions.</li>
+<li>Expanded Jest coverage exercises queue deletion retries and Supabase helpers to validate performance-related regressions.</li>
+<li>MindMatrix bug review completed to ensure the upstream issues list reflects the current fixes and regressions.</li>
+</ul>
+<a id="md:in-progress-🚧" class="tsd-anchor"></a><h3><a href="#md:in-progress-🚧">In Progress 🚧</a></h3><ul>
+<li>None — follow <a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md">TASKS.md</a> for upcoming work.</li>
+</ul>
+<p>For task tracking and progress, see <a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md">TASKS.md</a>.</p>
+<hr>
+<a id="md:for-developers" class="tsd-anchor"></a><h2><a href="#md:for-developers">For Developers</a></h2><a id="md:getting-started" class="tsd-anchor"></a><h3><a href="#md:getting-started">Getting Started</a></h3><pre><code class="language-bash"><span class="hl-0">git</span><span class="hl-1"> </span><span class="hl-2">clone</span><span class="hl-1"> </span><span class="hl-2">https://github.com/SMPL-Ai-Agency/Obsidian-RAG.git</span><br/><span class="hl-0">cd</span><span class="hl-1"> </span><span class="hl-2">Obsidian-RAG</span><br/><span class="hl-0">yarn</span><span class="hl-1"> </span><span class="hl-2">install</span><br/><span class="hl-0">yarn</span><span class="hl-1"> </span><span class="hl-2">dev</span>
+</code><button>Copy</button></pre>
+<blockquote>
+<p><strong>Note:</strong> Use <strong>Node.js 18+</strong> (the Makefile will stop if an older runtime is detected) and copy <code>.env.template</code> to <code>.env</code> before running <code>make init</code> or any Supabase tooling so your credentials are available.</p>
+</blockquote>
+<a id="md:testing" class="tsd-anchor"></a><h3><a href="#md:testing">Testing</a></h3><p>Use the Jest scripts to validate services, queues, and offline fallbacks before packaging the plugin:</p>
+<pre><code class="language-bash"><span class="hl-0">yarn</span><span class="hl-1"> </span><span class="hl-2">test</span><span class="hl-1">          </span><span class="hl-3"># Runs the full Jest suite once with the repo defaults.</span><br/><span class="hl-0">yarn</span><span class="hl-1"> </span><span class="hl-2">test:watch</span><span class="hl-1">    </span><span class="hl-3"># Starts Jest in watch mode for tight inner-loop work.</span>
+</code><button>Copy</button></pre>
+<p><code>yarn test:watch</code> was verified locally with <code>--runTestsByPath tests/QueueService.delete.test.ts</code>, and it immediately re-runs that suite when the files change.</p>
+<a id="md:generate-api-documentation" class="tsd-anchor"></a><h3><a href="#md:generate-api-documentation">Generate API documentation</a></h3><p>Run <code>yarn docs</code> to build a TypeDoc site under <code>docs/api/</code>. Publishing those HTML files alongside releases helps downstream automations (n8n, bots, CLI tools) understand the available services without digging through the codebase.</p>
+<a id="md:requirements" class="tsd-anchor"></a><h3><a href="#md:requirements">Requirements</a></h3><ul>
+<li>Node.js v18+</li>
+<li>Yarn  </li>
+<li>Supabase (PostgreSQL + vector extension)  </li>
+<li>Neo4j 5.x  </li>
+<li>Obsidian Plugin API knowledge</li>
+</ul>
+<a id="md:directory-structure" class="tsd-anchor"></a><h3><a href="#md:directory-structure">Directory Structure</a></h3><pre><code class="language-text">Obsidian-RAG/
+├── main.ts                       # Plugin entry point and lifecycle
+├── settings/
+│   ├── SettingsTab.ts             # Settings UI
+│   └── Settings.ts                # Settings interface and defaults
+├── services/
+│   ├── EventEmitter.ts            # Inter-service communication
+│   ├── InitialSyncManager.ts      # Initial vault sync
+│   ├── MetadataExtractor.ts       # Metadata for sync
+│   ├── OfflineQueueManager.ts     # Offline tasks
+│   ├── EmbeddingService.ts        # Ollama/OpenAI embeddings
+│   ├── QueueService.ts            # Async queue
+│   ├── StatusManager.ts           # Progress tracking
+│   ├── SupabaseService.ts         # Supabase operations
+│   ├── SyncDetectionManager.ts    # Quiet sync detection
+│   ├── SyncFileManager.ts         # Cross-device sync
+│   └── __tests__/                 # Unit tests
+├── utils/
+│   ├── ErrorHandler.ts            # Centralized logging
+│   ├── FileTracker.ts             # File event tracking
+│   ├── NotificationManager.ts     # Notifications + progress bar
+│   └── TextSplitter.ts            # Chunking and preprocessing
+├── models/
+│   ├── DocumentChunk.ts
+│   ├── ObsidianRAGSettings.ts
+│   ├── ProcessingTask.ts
+│   ├── QueueEvents.ts
+│   └── SyncModels.ts
+├── scripts/
+│   ├── query_tables.ts
+│   └── release-utils.sh
+├── sql/                           # Database schemas
+├── tests/
+├── styles.css
+├── manifest.json
+└── README.md
+</code><button>Copy</button></pre>
+<hr>
+<a id="md:contributing" class="tsd-anchor"></a><h2><a href="#md:contributing">Contributing</a></h2><p>Contributions are welcome!<br>Fork → Branch → Commit → Pull Request.<br>Bug fixes, optimizations, and docs improvements are encouraged.</p>
+<hr>
+<a id="md:support" class="tsd-anchor"></a><h2><a href="#md:support">Support</a></h2><p>If you encounter issues:</p>
+<ul>
+<li>Open an issue on GitHub  </li>
+<li>Check existing issues  </li>
+<li>Consult <a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md">INSTALL.md</a></li>
+</ul>
+<hr>
+<a id="md:license" class="tsd-anchor"></a><h2><a href="#md:license">License</a></h2><p>Licensed under the <strong>MIT License</strong>.  </p>
+<p>© 2025 George Freeney Jr.  |  SMPL: Ai Automations</p>
+<hr>
+<a id="md:documentation-index" class="tsd-anchor"></a><h2><a href="#md:documentation-index">Documentation Index</a></h2><ul>
+<li><a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md">Installation Guide</a></li>
+<li><a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md">Changelog</a></li>
+<li><a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md">Task Tracking</a></li>
+<li><a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/release/RELEASE_ARTIFACTS.md">Release Artifact Checklist</a></li>
+<li><a href="https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/feedback/BETA_FEEDBACK_ISSUES.md">Beta Feedback Tracker</a></li>
+</ul>
+</div></div><div class="col-sidebar"><div class="page-menu"><div class="tsd-navigation settings"><details class="tsd-index-accordion"><summary class="tsd-accordion-summary"><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><use href="assets/icons.svg#icon-chevronDown"></use></svg>Settings</h3></summary><div class="tsd-accordion-details"><div class="tsd-filter-visibility"><h4 class="uppercase">Member Visibility</h4><form><ul id="tsd-filter-options"><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li><li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></form></div><div class="tsd-theme-toggle"><h4 class="uppercase">Theme</h4><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div><details open class="tsd-index-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><use href="assets/icons.svg#icon-chevronDown"></use></svg>On This Page</h3></summary><div class="tsd-accordion-details"><a href="#md:obsidian-rag"><span>Obsidian RAG</span></a><ul><li><a href="#md:a-customizable-obsidian-hybrid-rag-plugin-for-obsidian-notes"><span>A <wbr/>Customizable <wbr/>Obsidian <wbr/>Hybrid RAG <wbr/>Plugin for <wbr/>Obsidian <wbr/>Notes</span></a></li></ul><a href="#md:summary"><span>Summary</span></a><a href="#md:plugin-features"><span>Plugin <wbr/>Features</span></a><a href="#md:use-cases"><span>Use <wbr/>Cases</span></a><a href="#md:advanced-entity-extraction-optional"><span>Advanced <wbr/>Entity <wbr/>Extraction (optional)</span></a><a href="#md:command-palette-controls"><span>Command <wbr/>Palette <wbr/>Controls</span></a><a href="#md:sync-modes-amp-hybrid-workflows"><span>Sync <wbr/>Modes &amp; <wbr/>Hybrid <wbr/>Workflows</span></a><ul><li><a href="#md:manual-offline-queue-recovery-runbook"><span>Manual <wbr/>Offline <wbr/>Queue <wbr/>Recovery <wbr/>Runbook</span></a></li></ul><a href="#md:installation"><span>Installation</span></a><ul><li><a href="#md:supabase-schema-automation"><span>Supabase schema automation</span></a></li><li><a href="#md:neo4j-setup-overview"><span>Neo4j <wbr/>Setup <wbr/>Overview</span></a></li></ul><a href="#md:project-status"><span>Project <wbr/>Status</span></a><ul><li><a href="#md:completed-✅"><span>Completed ✅</span></a></li><li><a href="#md:in-progress-🚧"><span>In <wbr/>Progress 🚧</span></a></li></ul><a href="#md:for-developers"><span>For <wbr/>Developers</span></a><ul><li><a href="#md:getting-started"><span>Getting <wbr/>Started</span></a></li><li><a href="#md:testing"><span>Testing</span></a></li><li><a href="#md:generate-api-documentation"><span>Generate API documentation</span></a></li><li><a href="#md:requirements"><span>Requirements</span></a></li><li><a href="#md:directory-structure"><span>Directory <wbr/>Structure</span></a></li></ul><a href="#md:contributing"><span>Contributing</span></a><a href="#md:support"><span>Support</span></a><a href="#md:license"><span>License</span></a><a href="#md:documentation-index"><span>Documentation <wbr/>Index</span></a></div></details></div><div class="site-menu"><nav class="tsd-navigation"><a href="modules.html" class="current"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="assets/icons.svg#icon-1"></use></svg><span>Obsidian RAG API</span></a><ul class="tsd-small-nested-navigation" id="tsd-nav-container" data-base="."><li>Loading...</li></ul></nav></div></div></div><footer><p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer><div class="overlay"></div></body></html>
