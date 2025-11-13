@@ -80,20 +80,32 @@ install-timeout:
 
 # Check environment setup
 check-env:
-	@if [ ! -f .env ]; then \
+	@if ! node -r ts-node/register -e "process.exit(0)" >/dev/null 2>&1; then \
+		echo "❌ Error: ts-node is not installed or not linked in node_modules" && \
+		echo "Please run 'yarn add -D ts-node@^10.9.2' (or 'yarn install') before running database scripts" && \
+		exit 1; \
+	else \
+		echo "✅ ts-node runtime dependency detected"; \
+	fi && \
+	if [ ! -d node_modules/ts-node ]; then \
+		echo "❌ Error: node_modules/ts-node directory missing" && \
+		echo "Please make sure dependencies are installed with 'yarn install'" && \
+		exit 1; \
+	fi && \
+	if [ ! -f .env ]; then \
 		echo "📝 Creating .env file from template..." && \
 		cp .env.template .env && \
 		echo "✅ .env file created. Please update the values in .env" && \
 		exit 0; \
 	fi && \
-	        export $$(grep -v '^#' .env | xargs) && \
-	        if [ -z "$$SUPABASE_URL" ] || [ -z "$$SUPABASE_DB_PASSWORD" ]; then \
-	                echo "❌ Error: SUPABASE_URL or SUPABASE_DB_PASSWORD not set in .env" && \
-	                echo "Please update the values in .env" && \
-	                exit 1; \
-	        else \
-	                echo "✅ Environment variables are properly set"; \
-	        fi
+		export $$(grep -v '^#' .env | sed 's/[[:space:]]*#.*$$//' | sed '/^$$/d' | xargs) && \
+		if [ -z "$$SUPABASE_URL" ] || [ -z "$$SUPABASE_DB_PASSWORD" ]; then \
+			echo "❌ Error: SUPABASE_URL or SUPABASE_DB_PASSWORD not set in .env" && \
+			echo "Please update the values in .env" && \
+			exit 1; \
+		else \
+			echo "✅ Environment variables are properly set"; \
+		fi
 
 # Setup database
 setup-db:

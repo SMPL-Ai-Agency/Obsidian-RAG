@@ -4365,7 +4365,7 @@ __metadata:
     p-limit: "npm:^4.0.0"
     postgres: "npm:^3.4.3"
     ts-jest: "npm:29.2.5"
-    ts-node: "npm:^10.9.2"
+    ts-node: "npm:10.9.2"
     tslib: "npm:2.4.0"
     typedoc: "npm:0.25.13"
     typescript: "npm:5.9.3"
@@ -5234,7 +5234,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-node@npm:^10.9.2":
+"ts-node@npm:10.9.2":
   version: 10.9.2
   resolution: "ts-node@npm:10.9.2"
   dependencies:
