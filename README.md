@@ -115,6 +115,7 @@ See [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTAL
 
 ### Supabase schema automation
 - Run [`sql/setup.sql`](sql/setup.sql) (or `make setup-db`) once to provision the shared `documents` table, indexes, and helper policies for your Supabase project.
+- If your Supabase region isn't encoded in `SUPABASE_URL`, set `SUPABASE_DB_REGION` (or the full `SUPABASE_DB_HOST`) in `.env` so the Makefile targets can derive the correct `aws-0-<region>.pooler.supabase.com` hostname.
 - The plugin now auto-creates the `obsidian_file_status` and `entities` tables the first time Supabase reports "relation does not exist," reusing the exact SQL from `sql/setup.sql` so the schema never drifts between manual and automated installs.
 - If your Supabase project does not expose the `execute_sql` RPC, the plugin falls back to the REST endpoint and then surfaces an actionable error telling you to paste the block from `sql/setup.sql` into the SQL editor (or run the Makefile target) to finish setup.
 

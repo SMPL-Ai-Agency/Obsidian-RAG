@@ -125,6 +125,7 @@ The inspiration for this plugin came from watching Nate Herk's YouTube video [St
      OLLAMA_MODEL=nomic-embed-text
      OPENAI_API_KEY=optional-openai-key
      ```
+   - If the region is not obvious from `SUPABASE_URL`, add `SUPABASE_DB_REGION=eu-central-1` (or set `SUPABASE_DB_HOST`) so the Makefile targets can build the `aws-0-<region>.pooler.supabase.com` hostname automatically.
 
 4. **Initialize the project**
    ```bash

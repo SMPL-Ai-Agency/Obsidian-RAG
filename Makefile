@@ -99,13 +99,13 @@ check-env:
 setup-db:
 	@if [ -f .env ]; then \
 		export $$(grep -v '^#' .env | xargs) && \
+		DB_INFO=$$(node -r ts-node/register scripts/db-connection.ts) && \
+		PROJECT_REF=$$(echo $$DB_INFO | jq -r '.projectRef') && \
+		DB_HOST=$$(echo $$DB_INFO | jq -r '.host') && \
+		DB_PORT=$$(echo $$DB_INFO | jq -r '.port') && \
+		DB_URL=$$(echo $$DB_INFO | jq -r '.connectionString') && \
 		# Test database connection
 		echo "🔍 Testing database connection..." && \
-		PROJECT_REF=$$(echo $$SUPABASE_URL | sed -E 's|https://([^.]+)\..*|\1|') && \
-		DB_HOST="aws-0-eu-central-1.pooler.supabase.com" && \
-		DB_PORT="6543" && \
-		ENCODED_PASSWORD=$$(printf '%s' "$$SUPABASE_DB_PASSWORD" | jq -sRr @uri) && \
-		DB_URL="postgresql://postgres.$$PROJECT_REF:$$ENCODED_PASSWORD@$$DB_HOST:$$DB_PORT/postgres?sslmode=require" && \
 		if ! timeout 10s psql "$$DB_URL" -c "SELECT 1" > /dev/null 2>&1; then \
 			echo "❌ Error: Could not connect to database" && \
 			echo "Please check your Supabase credentials and network connection" && \
@@ -147,11 +147,11 @@ test-db:
 			echo "Error: SUPABASE_DB_PASSWORD is not set in .env"; \
 			exit 1; \
 		fi && \
-		PROJECT_REF=$$(echo $$SUPABASE_URL | sed -E 's|https://([^.]+)\..*|\1|') && \
-		DB_HOST="aws-0-eu-central-1.pooler.supabase.com" && \
-		DB_PORT="6543" && \
-		ENCODED_PASSWORD=$$(printf '%s' "$$SUPABASE_DB_PASSWORD" | jq -sRr @uri) && \
-		DB_URL="postgresql://postgres.$$PROJECT_REF:$$ENCODED_PASSWORD@$$DB_HOST:$$DB_PORT/postgres?sslmode=require" && \
+		DB_INFO=$$(node -r ts-node/register scripts/db-connection.ts) && \
+		PROJECT_REF=$$(echo $$DB_INFO | jq -r '.projectRef') && \
+		DB_HOST=$$(echo $$DB_INFO | jq -r '.host') && \
+		DB_PORT=$$(echo $$DB_INFO | jq -r '.port') && \
+		DB_URL=$$(echo $$DB_INFO | jq -r '.connectionString') && \
 		echo "Testing database connection..." && \
 		timeout 10s psql "$$DB_URL" -c "SELECT version();" && { \
 			echo "✅ Database connection successful!"; \
@@ -200,11 +200,11 @@ reset:
 			echo "Error: SUPABASE_DB_PASSWORD is not set in .env"; \
 			exit 1; \
 		fi && \
-		PROJECT_REF=$$(echo $$SUPABASE_URL | sed -E 's|https://([^.]+)\..*|\1|') && \
-		DB_HOST="aws-0-eu-central-1.pooler.supabase.com" && \
-		DB_PORT="6543" && \
-		ENCODED_PASSWORD=$$(printf '%s' "$$SUPABASE_DB_PASSWORD" | jq -sRr @uri) && \
-		DB_URL="postgresql://postgres.$$PROJECT_REF:$$ENCODED_PASSWORD@$$DB_HOST:$$DB_PORT/postgres?sslmode=require" && \
+		DB_INFO=$$(node -r ts-node/register scripts/db-connection.ts) && \
+		PROJECT_REF=$$(echo $$DB_INFO | jq -r '.projectRef') && \
+		DB_HOST=$$(echo $$DB_INFO | jq -r '.host') && \
+		DB_PORT=$$(echo $$DB_INFO | jq -r '.port') && \
+		DB_URL=$$(echo $$DB_INFO | jq -r '.connectionString') && \
 		echo "Resetting database..." && \
 		timeout 30s psql "$$DB_URL" -f sql/reset.sql || { \
 			if [ $$? -eq 124 ]; then \
