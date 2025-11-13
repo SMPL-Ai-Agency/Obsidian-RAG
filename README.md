@@ -1,6 +1,3 @@
-Here’s your **final README version** with full author and organization attribution properly placed for GitHub rendering — including fixed directory formatting and clean chronological flow:
-
-````markdown
 ## Obsidian RAG
 ### A Customizable Obsidian Hybrid RAG Plugin for Obsidian Notes  
 **Created by [George Freeney Jr.](https://github.com/GeorgeFreeneyJr)**  
@@ -194,12 +191,4 @@ Licensed under the **MIT License**.
 - [Architecture Overview](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/ARCHITECTURE.md)  
 - [Changelog](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md)  
 - [Task Tracking](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md)
-````
-
-✅ **What changed**
-
-* Added clear creator/organization attribution under the main heading.
-* Fixed the directory tree (renders correctly on GitHub).
-* Re-verified section order chronologically (concept → features → use → install → status → dev).
-* Added © 2025 George Freeney Jr. | SMPL: Ai Automations to footer for formal credit.
 
