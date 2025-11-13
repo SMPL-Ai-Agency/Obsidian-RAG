@@ -10,14 +10,22 @@ export class Neo4jService {
         private driver: Driver;
         private projectName: string;
         private settings: Neo4jSettings;
-        private readonly maxBatchSize: number;
+        private readonly effectiveBatchSize: number;
 
         private constructor(settings: Neo4jSettings) {
                 this.settings = settings;
                 this.projectName = settings.projectName || 'obsidian-rag';
                 this.driver = neo4j.driver(settings.url, neo4j.auth.basic(settings.username, settings.password));
-                const normalizedBatchSize = settings.neo4jBatchLimit ?? settings.maxBatchSize ?? 500;
-                this.maxBatchSize = Math.min(Math.max(normalizedBatchSize, 50), 2000);
+                const batchCandidates: number[] = [];
+                if (typeof settings.maxBatchSize === 'number') {
+                        batchCandidates.push(settings.maxBatchSize);
+                }
+                if (typeof settings.neo4jBatchLimit === 'number') {
+                        batchCandidates.push(settings.neo4jBatchLimit);
+                }
+                const selectedBatchSize =
+                        batchCandidates.length > 0 ? Math.min(...batchCandidates) : 500;
+                this.effectiveBatchSize = Math.min(Math.max(selectedBatchSize, 50), 2000);
         }
 
         public static async getInstance(settings: ObsidianRAGSettings): Promise<Neo4jService | null> {
@@ -290,7 +298,7 @@ SET r.keywords = rel.keywords,
                 }
         }
 
-        private chunkItems<T>(items: T[], chunkSize: number = this.maxBatchSize): T[][] {
+        private chunkItems<T>(items: T[], chunkSize: number = this.effectiveBatchSize): T[][] {
                 if (!Array.isArray(items) || items.length === 0) {
                         return [];
                 }
@@ -305,12 +313,12 @@ SET r.keywords = rel.keywords,
         private async batchUpsert<T>(
                 items: T[],
                 handler: (batch: T[]) => Promise<void>,
-                batchSize: number = this.maxBatchSize
+                batchSize: number = this.effectiveBatchSize
         ): Promise<void> {
                 if (!Array.isArray(items) || items.length === 0) {
                         return;
                 }
-                const normalizedSize = Math.max(1, Math.min(batchSize, this.maxBatchSize));
+                const normalizedSize = Math.max(1, Math.min(batchSize, this.effectiveBatchSize));
                 for (let i = 0; i < items.length; i += normalizedSize) {
                         const batch = items.slice(i, i + normalizedSize);
                         if (!batch.length) continue;

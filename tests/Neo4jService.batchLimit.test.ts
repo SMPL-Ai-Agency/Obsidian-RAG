@@ -44,12 +44,14 @@ describe('Neo4jService batch safeguards', () => {
                 (Neo4jService as unknown as { instance: Neo4jService | null }).instance = null;
         });
 
-        it('splits chunk/entity payloads according to the configured batch size', async () => {
+        async function expectBatchesToRespect(
+                limit: number,
+                configure: (settings: typeof DEFAULT_SETTINGS) => void
+        ) {
                 const settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
                 settings.neo4j.password = 'pass';
                 settings.neo4j.projectName = 'integration-test';
-                settings.neo4j.maxBatchSize = 50;
-                const batchSize = settings.neo4j.maxBatchSize;
+                configure(settings);
                 const service = await Neo4jService.getInstance(settings);
                 if (!service) {
                         throw new Error('Service was not initialized');
@@ -62,7 +64,7 @@ describe('Neo4jService batch safeguards', () => {
                         created: Date.now(),
                         size: 42,
                 };
-                const chunkCount = batchSize + 5;
+                const chunkCount = limit + 5;
                 const chunks: DocumentChunk[] = Array.from({ length: chunkCount }).map((_, index) => ({
                         id: index,
                         vault_id: 'vault',
@@ -96,17 +98,38 @@ describe('Neo4jService batch safeguards', () => {
                 );
                 expect(chunkQueries.length).toBeGreaterThan(1);
                 for (const [, params] of chunkQueries) {
-                        expect(params.chunks.length).toBeLessThanOrEqual(batchSize);
+                        expect(params.chunks.length).toBeLessThanOrEqual(limit);
                 }
 
                 const entityQueries = runMock.mock.calls.filter(([, params]) => Array.isArray(params?.entities));
                 entityQueries.forEach(([, params]) => {
-                        expect(params.entities.length).toBeLessThanOrEqual(batchSize);
+                        expect(params.entities.length).toBeLessThanOrEqual(limit);
                 });
 
                 const relationshipQueries = runMock.mock.calls.filter(([, params]) => Array.isArray(params?.relationships));
                 relationshipQueries.forEach(([, params]) => {
-                        expect(params.relationships.length).toBeLessThanOrEqual(batchSize);
+                        expect(params.relationships.length).toBeLessThanOrEqual(limit);
+                });
+        }
+
+        it('respects maxBatchSize when neo4jBatchLimit is not provided', async () => {
+                await expectBatchesToRespect(50, settings => {
+                        settings.neo4j.maxBatchSize = 50;
+                        delete settings.neo4j.neo4jBatchLimit;
+                });
+        });
+
+        it('respects neo4jBatchLimit when maxBatchSize is not provided', async () => {
+                await expectBatchesToRespect(60, settings => {
+                        settings.neo4j.neo4jBatchLimit = 60;
+                        delete settings.neo4j.maxBatchSize;
+                });
+        });
+
+        it('uses the smaller batch size when both overrides are set', async () => {
+                await expectBatchesToRespect(75, settings => {
+                        settings.neo4j.maxBatchSize = 150;
+                        settings.neo4j.neo4jBatchLimit = 75;
                 });
         });
 });
