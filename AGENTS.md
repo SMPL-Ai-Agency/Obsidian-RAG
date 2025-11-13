@@ -25,7 +25,7 @@ This file applies to the entire repository unless a nested `AGENTS.md` overrides
 - **Event Queue**: In-memory FIFO with timestamps; types like FILE_CREATED; states like QUEUED.
 - **File Tracking**: Hashing, metadata extraction (YAML, tags, links), exclusions.
 - **Processing Pipeline**: Chunking, entity extraction, embedding generation, atomic DB syncs.
-- **Database**: Supabase tables (obsidian_documents, obsidian_file_status); Neo4j nodes/relations.
+- **Database**: Supabase tables (`documents`, `obsidian_file_status`); Neo4j nodes/relations.
 - **Settings/UI**: API configs, mode toggles, rescans, status indicators.
 - **AI Directive**: Generate code with atomic transactions; defer heavy ops; include exclusion rules.
 

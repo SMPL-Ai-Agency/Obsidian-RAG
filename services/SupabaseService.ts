@@ -7,8 +7,9 @@ export class SupabaseService {
 	private client: SupabaseClient | null;
 	private static instance: SupabaseService | null = null;
 	private settings: ObsidianRAGSettings;
-	private readonly TABLE_NAME = 'obsidian_documents';
-	private readonly FILE_STATUS_TABLE = 'obsidian_file_status';
+	private readonly TABLE_NAME = 'documents';
+private readonly FILE_STATUS_TABLE = 'obsidian_file_status';
+private readonly DEFAULT_MATCH_THRESHOLD = 0.7;
 	// Track deletion operations for a given file to avoid concurrent deletes
 	private deleteOperationsInProgress: Map<string, boolean> = new Map();
 
@@ -23,6 +24,53 @@ export class SupabaseService {
 		}
 		this.settings = settings;
 		this.client = createClient(settings.supabase.url, settings.supabase.apiKey);
+	}
+
+	private get currentProjectName(): string {
+		if (!this.settings.vaultId) {
+			throw new Error('Vault ID is not initialized');
+		}
+		return this.settings.vaultId;
+	}
+
+	private buildDocumentRow(fileStatusId: number, chunk: DocumentChunk) {
+		const now = new Date().toISOString();
+		const metadata = {
+			...chunk.metadata,
+			vault_id: this.settings.vaultId,
+			file_status_id: fileStatusId,
+			chunk_index: chunk.chunk_index,
+			vectorized_at: chunk.vectorized_at || now,
+			updated_at: chunk.updated_at || now,
+		};
+		return {
+			content: chunk.content,
+			metadata,
+			embedding: chunk.embedding && chunk.embedding.length > 0 ? chunk.embedding : null,
+			project_name: this.currentProjectName,
+		};
+	}
+
+	private mapRowToDocumentChunk(row: any): DocumentChunk {
+		const metadata = (row.metadata || {}) as DocumentMetadata & {
+			chunk_index?: number;
+			file_status_id?: number;
+			vault_id?: string;
+			vectorized_at?: string;
+			updated_at?: string;
+		};
+		return {
+			id: row.id,
+			vault_id: metadata.vault_id || this.settings.vaultId!,
+			file_status_id: Number(metadata.file_status_id ?? 0),
+			chunk_index: metadata.chunk_index ?? 0,
+			content: row.content,
+			metadata,
+			embedding: row.embedding || [],
+			vectorized_at: metadata.vectorized_at || new Date().toISOString(),
+			created_at: row.created_at,
+			updated_at: row.updated_at || metadata.updated_at,
+		};
 	}
 
 	public static async getInstance(settings: ObsidianRAGSettings): Promise<SupabaseService | null> {
@@ -50,8 +98,8 @@ export class SupabaseService {
 			return;
 		}
 		try {
-			new Notice('Checking database connection...');
-			// Verify connection by selecting from obsidian_documents
+new Notice('Checking database connection...');
+// Verify connection by selecting from documents
 			const { error: testError } = await this.client
 				.from(this.TABLE_NAME)
 				.select('id')
@@ -93,18 +141,16 @@ export class SupabaseService {
 		}
 	}
 
-        /**
-         * Inserts or updates document chunks in the obsidian_documents table using an atomic transaction.
-         * Improvements:
-         * - Relies on the database function `upsert_document_chunks` to perform delete + insert atomically
-         * - Simplifies error handling because PostgreSQL rolls back the entire operation on failure
-         * - Prevents concurrent operations on the same file to avoid racing RPC calls
-         */
-	public async upsertChunks(chunks: DocumentChunk[]): Promise<void> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping upsertChunks.');
-			return;
-		}
+/**
+ * Inserts or updates document chunks in the shared documents table while preserving the
+ * existing Supabase schema. Operations are performed in two steps (delete + insert)
+ * while we serialize writes per file to avoid race conditions.
+ */
+public async upsertChunks(chunks: DocumentChunk[]): Promise<void> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping upsertChunks.');
+return;
+}
 
 		if (chunks.length === 0) {
 			console.log('No chunks to upsert');
@@ -168,49 +214,33 @@ export class SupabaseService {
 
 			const fileStatusId = fileStatusData.id;
 
-			// Prepare new chunk data for insertion with file_status_id
-			const chunksToInsert = chunks.map(chunk => ({
-				vault_id: this.settings.vaultId,
-				file_status_id: fileStatusId,
-				chunk_index: chunk.chunk_index,
-				content: chunk.content,
-				metadata: chunk.metadata,
-				embedding: chunk.embedding,
-				vectorized_at: chunk.vectorized_at,
-				updated_at: new Date().toISOString()
-			}));
+console.log(`Preparing to update ${chunks.length} chunks for file: ${obsidianId}`);
 
-                        const chunkCount = chunksToInsert.length;
-                        console.log(`Preparing to update ${chunkCount} chunks for file: ${obsidianId}`);
+const { error: deleteError } = await this.client
+.from(this.TABLE_NAME)
+.delete()
+.eq('project_name', this.currentProjectName)
+.contains('metadata', { file_status_id: fileStatusId });
+if (deleteError) {
+console.error('Failed to delete existing chunks:', deleteError);
+throw deleteError;
+}
 
-                        const chunkPayload = chunksToInsert.map(chunk => ({
-                                chunk_index: chunk.chunk_index,
-                                content: chunk.content,
-                                metadata: chunk.metadata,
-                                embedding: chunk.embedding,
-                                vectorized_at: chunk.vectorized_at,
-                                updated_at: chunk.updated_at
-                        }));
+const rows = chunks.map(chunk => this.buildDocumentRow(fileStatusId, chunk));
+const { error: insertError } = await this.client.from(this.TABLE_NAME).insert(rows);
+if (insertError) {
+console.error('Failed to insert new chunks:', insertError);
+throw insertError;
+}
 
-                        const { error: upsertError } = await this.client.rpc('upsert_document_chunks', {
-                                p_vault_id: this.settings.vaultId,
-                                p_file_status_id: fileStatusId,
-                                p_chunks: chunkPayload
-                        });
-
-                        if (upsertError) {
-                                console.error('Atomic chunk upsert failed:', upsertError);
-                                throw upsertError;
-                        }
-
-                        console.log('Successfully updated chunks via transaction:', {
-                                numberOfChunks: chunkCount,
-                                vaultId: this.settings.vaultId,
-                                obsidianId
-                        });
-                } catch (error) {
-                        console.error('Failed to upsert chunks:', error);
-                        throw error;
+console.log('Successfully updated chunks in shared documents table:', {
+numberOfChunks: rows.length,
+vaultId: this.settings.vaultId,
+obsidianId
+});
+} catch (error) {
+console.error('Failed to upsert chunks:', error);
+throw error;
                 } finally {
 			// Clear deletion in progress flag
 			this.deleteOperationsInProgress.set(obsidianId, false);
@@ -324,158 +354,140 @@ export class SupabaseService {
 		}
 	}
 
-	/**
-	 * Deletes document chunks for a given file status ID from the obsidian_documents table.
-	 * Improved with tracking of operation progress and verification.
-	 */
-        public async deleteDocumentChunks(fileStatusId: number): Promise<void> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
-			return;
-		}
+/**
+ * Deletes document chunks for a given file status ID from the shared documents table.
+ * Improved with tracking of operation progress and verification.
+ */
+public async deleteDocumentChunks(fileStatusId: number): Promise<void> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping deleteDocumentChunks.');
+return;
+}
 
-		const fileStatusKey = fileStatusId.toString();
+const fileStatusKey = fileStatusId.toString();
 
-		// If a deletion is already in progress for this file, wait with exponential backoff
-		if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-			console.warn(`Delete operation already in progress for file status ID ${fileStatusId}. Waiting...`);
-			let retryCount = 0;
-			const maxRetries = 5;
-			const baseDelay = 500; // ms
+if (this.deleteOperationsInProgress.get(fileStatusKey)) {
+console.warn(`Delete operation already in progress for file status ID ${fileStatusId}. Waiting...`);
+let retryCount = 0;
+const maxRetries = 5;
+const baseDelay = 500; // ms
 
-			while (this.deleteOperationsInProgress.get(fileStatusKey) && retryCount < maxRetries) {
-				const delay = baseDelay * Math.pow(2, retryCount);
-				await new Promise(resolve => setTimeout(resolve, delay));
-				retryCount++;
-			}
+while (this.deleteOperationsInProgress.get(fileStatusKey) && retryCount < maxRetries) {
+const delay = baseDelay * Math.pow(2, retryCount);
+await new Promise(resolve => setTimeout(resolve, delay));
+retryCount++;
+}
 
-			if (this.deleteOperationsInProgress.get(fileStatusKey)) {
-				throw new Error(`Deletion operation timeout for file status ID ${fileStatusId}`);
-			}
-		}
+if (this.deleteOperationsInProgress.get(fileStatusKey)) {
+throw new Error(`Deletion operation timeout for file status ID ${fileStatusId}`);
+}
+}
 
-		// Mark deletion as in progress
-		this.deleteOperationsInProgress.set(fileStatusKey, true);
+this.deleteOperationsInProgress.set(fileStatusKey, true);
 
-		try {
-			console.log(`Starting deletion of chunks for file status ID ${fileStatusId}`);
+try {
+console.log(`Starting deletion of chunks for file status ID ${fileStatusId}`);
 
-			// Check how many chunks exist
-			const { data: initialData, error: initialCountError } = await this.client
-				.from(this.TABLE_NAME)
-				.select('id')
-				.eq('vault_id', this.settings.vaultId)
-				.eq('file_status_id', fileStatusId);
+const { data: initialData, error: initialCountError } = await this.client
+.from(this.TABLE_NAME)
+.select('id')
+.eq('project_name', this.currentProjectName)
+.contains('metadata', { file_status_id: fileStatusId });
 
-			if (initialCountError) {
-				console.error('Error checking existing chunks:', initialCountError);
-				throw initialCountError;
-			}
+if (initialCountError) {
+console.error('Error checking existing chunks:', initialCountError);
+throw initialCountError;
+}
 
-			const initialCount = initialData ? initialData.length : 0;
-			console.log(`Found ${initialCount} chunks to delete for file status ID ${fileStatusId}`);
+const initialCount = initialData ? initialData.length : 0;
+if (initialCount === 0) {
+return;
+}
 
-			// If there are no chunks, we can return early
-			if (initialCount === 0) {
-				return;
-			}
+let retryCount = 0;
+const maxRetries = 3;
+let success = false;
 
-			// Delete the chunks with retries
-			let retryCount = 0;
-			const maxRetries = 3;
-			let success = false;
+while (!success && retryCount < maxRetries) {
+try {
+const { error: deleteError } = await this.client
+.from(this.TABLE_NAME)
+.delete()
+.eq('project_name', this.currentProjectName)
+.contains('metadata', { file_status_id: fileStatusId });
 
-			while (!success && retryCount < maxRetries) {
-				try {
-					const { error: deleteError } = await this.client
-						.from(this.TABLE_NAME)
-						.delete()
-						.eq('vault_id', this.settings.vaultId)
-						.eq('file_status_id', fileStatusId);
+if (deleteError) {
+throw deleteError;
+}
 
-					if (deleteError) {
-						throw deleteError;
-					}
+await new Promise(resolve => setTimeout(resolve, 500));
 
-					// Wait briefly to let the deletion propagate
-					await new Promise(resolve => setTimeout(resolve, 500));
+const { data: remainingData, error: verifyError } = await this.client
+.from(this.TABLE_NAME)
+.select('id')
+.eq('project_name', this.currentProjectName)
+.contains('metadata', { file_status_id: fileStatusId });
 
-					// Verify deletion
-					const { data: remainingData, error: verifyError } = await this.client
-						.from(this.TABLE_NAME)
-						.select('id')
-						.eq('vault_id', this.settings.vaultId)
-						.eq('file_status_id', fileStatusId);
+if (verifyError) {
+throw verifyError;
+}
 
-					if (verifyError) {
-						throw verifyError;
-					}
+const remainingCount = remainingData ? remainingData.length : 0;
+if (remainingCount === 0) {
+success = true;
+break;
+}
 
-					const remainingCount = remainingData ? remainingData.length : 0;
-					if (remainingCount === 0) {
-						success = true;
-						break;
-					}
+console.warn(`Deletion verification failed: ${remainingCount} chunks still exist. Retrying...`);
+retryCount++;
+await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+} catch (error) {
+console.error(`Delete attempt ${retryCount + 1} failed:`, error);
+retryCount++;
+if (retryCount < maxRetries) {
+await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+} else {
+throw error;
+}
+}
+}
 
-					console.warn(`Deletion verification failed: ${remainingCount} chunks still exist. Retrying...`);
-					retryCount++;
-					await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-				} catch (error) {
-					console.error(`Delete attempt ${retryCount + 1} failed:`, error);
-					retryCount++;
-					if (retryCount < maxRetries) {
-						await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-					} else {
-						throw error;
-					}
-				}
-			}
+if (!success) {
+throw new Error(`Failed to delete chunks after ${maxRetries} attempts`);
+}
 
-			if (!success) {
-				throw new Error(`Failed to delete chunks after ${maxRetries} attempts`);
-			}
+console.log(`Successfully deleted chunks for file status ID ${fileStatusId}`);
+} catch (error) {
+console.error('Failed to delete chunks:', error);
+throw error;
+} finally {
+this.deleteOperationsInProgress.set(fileStatusKey, false);
+}
+}
 
-			console.log(`Successfully deleted chunks for file status ID ${fileStatusId}`);
-		} catch (error) {
-			console.error('Failed to delete chunks:', error);
-			throw error;
-		} finally {
-			// Clear the deletion-in-progress flag
-			this.deleteOperationsInProgress.set(fileStatusKey, false);
-		}
-        }
-
-        /**
-         * Retrieves document chunks for a given file status ID.
-         */
-        public async getDocumentChunks(fileStatusId: number): Promise<DocumentChunk[]> {
-                if (!this.client) {
-                        console.warn('Supabase client is not initialized. Skipping getDocumentChunks.');
-                        return [];
-                }
-                try {
-                        const { data, error } = await this.client
-                                .from(this.TABLE_NAME)
-                                .select('*')
-                                .eq('vault_id', this.settings.vaultId)
-                                .eq('file_status_id', fileStatusId)
-                                .order('chunk_index');
-                        if (error) throw error;
-                        return data.map(row => ({
-                                vault_id: row.vault_id,
-                                file_status_id: row.file_status_id,
-                                chunk_index: row.chunk_index,
-                                content: row.content,
-                                metadata: row.metadata as DocumentMetadata,
-                                embedding: row.embedding,
-                                vectorized_at: row.vectorized_at,
-                                updated_at: row.updated_at
-                        }));
-                } catch (error) {
-                        console.error('Failed to get chunks:', error);
-                        throw error;
-                }
-        }
+/**
+ * Retrieves document chunks for a given file status ID.
+ */
+public async getDocumentChunks(fileStatusId: number): Promise<DocumentChunk[]> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping getDocumentChunks.');
+return [];
+}
+try {
+const { data, error } = await this.client
+.from(this.TABLE_NAME)
+.select('id, content, metadata, embedding, created_at, updated_at')
+.eq('project_name', this.currentProjectName)
+.contains('metadata', { file_status_id: fileStatusId });
+if (error) throw error;
+return (data || [])
+.map(row => this.mapRowToDocumentChunk(row))
+.sort((a, b) => a.chunk_index - b.chunk_index);
+} catch (error) {
+console.error('Failed to get chunks:', error);
+throw error;
+}
+}
 
         /**
          * Fetches the file_status_id for a given file path if it exists.
@@ -699,39 +711,40 @@ export class SupabaseService {
 		}
 	}
 
-	/**
-	 * Performs a semantic search using the match_documents function.
-	 */
-	public async semanticSearch(embedding: number[], limit: number = 5): Promise<Array<{
-		content: string;
-		metadata: DocumentMetadata;
-		similarity: number;
-	}>> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping semanticSearch.');
-			return [];
-		}
-		try {
-			const { data, error } = await this.client.rpc('match_documents', {
-				query_embedding: embedding,
-				search_vault_id: this.settings.vaultId,
-				match_count: limit
-			});
-			if (error) throw error;
-			return data.map((row: any) => ({
-				content: row.content,
-				metadata: row.metadata as DocumentMetadata,
-				similarity: row.similarity
-			}));
-		} catch (error) {
-			console.error('Failed to perform semantic search:', error);
-			throw error;
-		}
-	}
+/**
+ * Performs a semantic search using the match_documents function.
+ */
+public async semanticSearch(embedding: number[], limit: number = 5): Promise<Array<{
+content: string;
+metadata: DocumentMetadata;
+similarity: number;
+}>> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping semanticSearch.');
+return [];
+}
+try {
+const { data, error } = await this.client.rpc('match_documents', {
+query_embedding: embedding,
+match_threshold: this.DEFAULT_MATCH_THRESHOLD,
+match_count: limit,
+filter_project_name: this.settings.vaultId,
+});
+if (error) throw error;
+return data.map((row: any) => ({
+content: row.content,
+metadata: row.metadata as DocumentMetadata,
+similarity: row.similarity
+}));
+} catch (error) {
+console.error('Failed to perform semantic search:', error);
+throw error;
+}
+}
 
-	/**
-	 * Tests the connection by selecting from the obsidian_documents table.
-	 */
+/**
+ * Tests the connection by selecting from the documents table.
+ */
 	public async testConnection(): Promise<boolean> {
 		if (!this.client) return false;
 		try {
@@ -749,74 +762,64 @@ export class SupabaseService {
 		}
 	}
 
-	/**
-	 * Returns all unique obsidian_ids from the obsidian_documents table for the current vault.
-	 */
-	public async getAllDocumentIds(): Promise<string[]> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping getAllDocumentIds.');
-			return [];
-		}
-		try {
-			const { data, error } = await this.client
-				.from(this.TABLE_NAME)
-				.select('obsidian_id')
-				.eq('vault_id', this.settings.vaultId);
-			if (error) {
-				if (error.message.includes('does not exist')) {
-					return [];
-				}
-				throw error;
-			}
-			// Use Set to get unique values
-			const uniqueIds = new Set(data.map((row: any) => row.obsidian_id));
-			return Array.from(uniqueIds);
-		} catch (error) {
-			console.error('Failed to get document IDs:', error);
-			throw error;
-		}
-	}
+/**
+ * Returns all unique obsidianIds from the documents table for the current vault.
+ */
+public async getAllDocumentIds(): Promise<string[]> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping getAllDocumentIds.');
+return [];
+}
+try {
+const { data, error } = await this.client
+.from(this.TABLE_NAME)
+.select('metadata')
+.eq('project_name', this.currentProjectName);
+if (error) {
+if (error.message.includes('does not exist')) {
+return [];
+}
+throw error;
+}
+const uniqueIds = new Set(
+(data || [])
+.map((row: { metadata: DocumentMetadata }) => row.metadata?.obsidianId)
+.filter((id): id is string => Boolean(id))
+);
+return Array.from(uniqueIds);
+} catch (error) {
+console.error('Failed to get document IDs:', error);
+throw error;
+}
+}
 
-	/**
-	 * Creates the required database tables if needed (manual invocation).
-	 */
-	public async createRequiredTables(): Promise<{ success: boolean; message: string }> {
-		if (!this.client) {
-			return {
-				success: false,
-				message: 'Supabase client not initialized'
-			};
-		}
-		try {
-			// Attempt to create the file status table
-			const createFileStatusTableSQL = `
-				CREATE TABLE IF NOT EXISTS ${this.FILE_STATUS_TABLE} (
-					id BIGSERIAL PRIMARY KEY,
-					vault_id TEXT NOT NULL,
-					file_path TEXT NOT NULL,
-					last_modified BIGINT NOT NULL,
-					last_vectorized TIMESTAMPTZ,
-					content_hash TEXT,
-					status TEXT,
-					tags TEXT[],
-					aliases TEXT[],
-					links TEXT[],
-					created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-					updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-					UNIQUE(vault_id, file_path)
-				);
-				CREATE INDEX IF NOT EXISTS idx_file_status_vault_path ON ${this.FILE_STATUS_TABLE}(vault_id, file_path);
-			`;
-			// Execute via a Postgres RPC; note that this may require elevated privileges.
-			const { error } = await this.client.rpc('run_sql', { sql: createFileStatusTableSQL });
-			if (error) {
-				return { success: false, message: `Could not create tables: ${error.message}` };
-			}
-			return { success: true, message: 'Tables created successfully' };
-		} catch (error) {
-			return { success: false, message: `Error creating tables: ${(error as Error).message}` };
-		}
-	}
+/**
+ * Verifies that required tables exist. Creation must be performed via sql/setup.sql
+ * to avoid accidental data loss in shared Supabase projects.
+ */
+public async createRequiredTables(): Promise<{ success: boolean; message: string }> {
+if (!this.client) {
+return {
+success: false,
+message: 'Supabase client not initialized'
+};
+}
+try {
+const { error } = await this.client
+.from(this.FILE_STATUS_TABLE)
+.select('id')
+.limit(1);
+if (error && error.message.includes('does not exist')) {
+return {
+success: false,
+message: 'obsidian_file_status table is missing. Please run sql/setup.sql against your Supabase project to create it.'
+};
+}
+return { success: true, message: 'Required tables already exist.' };
+} catch (error) {
+return { success: false, message: `Error verifying tables: ${(error as Error).message}` };
+}
+}
 
 	public async updateFilePath(oldPath: string, newPath: string): Promise<void> {
 		if (!this.client) return;
@@ -877,7 +880,7 @@ export class SupabaseService {
 		let error: string | undefined;
 
 		try {
-			// Check obsidian_documents table
+// Check documents table
 			const { error: documentsError } = await this.client
 				.from(this.TABLE_NAME)
 				.select('id')
@@ -916,40 +919,40 @@ export class SupabaseService {
 		}
 	}
 
-	/**
-	 * Resets the database by dropping and recreating all tables.
-	 * WARNING: This will delete all data in the tables.
-	 */
-	public async resetDatabase(): Promise<{ success: boolean; message: string }> {
-		if (!this.client) {
-			return {
-				success: false,
-				message: 'Supabase client is not initialized'
-			};
-		}
+/**
+ * Resets the current vault's data by deleting only project-specific rows.
+ */
+public async resetDatabase(): Promise<{ success: boolean; message: string }> {
+if (!this.client) {
+return {
+success: false,
+message: 'Supabase client is not initialized'
+};
+}
 
-		try {
-			// Drop tables if they exist
-			await this.client.rpc('drop_tables_if_exist');
-			
-			// Recreate tables
-			const { error: createError } = await this.client.rpc('create_required_tables');
-			if (createError) {
-				throw new Error(`Failed to create tables: ${createError.message}`);
-			}
+try {
+await this.client
+.from(this.TABLE_NAME)
+.delete()
+.eq('project_name', this.currentProjectName);
 
-			return {
-				success: true,
-				message: 'Database reset successfully'
-			};
-		} catch (err) {
-			console.error('Error resetting database:', err);
-			return {
-				success: false,
-				message: `Error resetting database: ${(err as Error).message}`
-			};
-		}
-	}
+await this.client
+.from(this.FILE_STATUS_TABLE)
+.delete()
+.eq('vault_id', this.currentProjectName);
+
+return {
+success: true,
+message: 'Cleared all documents and file status records for this vault.'
+};
+} catch (err) {
+console.error('Error resetting database:', err);
+return {
+success: false,
+message: `Error resetting database: ${(err as Error).message}`
+};
+}
+}
 
 	/**
 	 * Removes files from the database that match exclusion patterns
@@ -1026,12 +1029,12 @@ export class SupabaseService {
                                 return 0;
                         }
 
-                        // First, find all files that match the exclusion patterns
-                        const { data: filesToRemove, error: queryError } = await this.client
-                                .from(this.FILE_STATUS_TABLE)
-                                .select('file_path')
-                                .eq('vault_id', vaultId)
-                                .or(exclusionClauses.join(','));
+// First, find all files that match the exclusion patterns
+const { data: filesToRemove, error: queryError } = await this.client
+.from(this.FILE_STATUS_TABLE)
+.select('id, file_path')
+.eq('vault_id', vaultId)
+.or(exclusionClauses.join(','));
 
 			if (queryError) throw queryError;
 
@@ -1039,16 +1042,10 @@ export class SupabaseService {
 				return 0;
 			}
 
-			const filePaths = filesToRemove.map(f => f.file_path);
-
-			// Remove from obsidian_documents table
-			const { error: docError } = await this.client
-				.from(this.TABLE_NAME)
-				.delete()
-				.eq('vault_id', vaultId)
-				.in('file_path', filePaths);
-
-			if (docError) throw docError;
+const filePaths = filesToRemove.map(f => f.file_path);
+for (const record of filesToRemove) {
+await this.deleteDocumentChunks(record.id);
+}
 
 			// Remove from obsidian_file_status table
 			const { error: statusError } = await this.client
@@ -1131,21 +1128,22 @@ export class SupabaseService {
 		}
 	}
 
-	/**
-	 * Gets all documents from the obsidian_documents table
-	 */
-	public async getAllDocuments(): Promise<any[]> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping getAllDocuments.');
-			return [];
-		}
-		try {
-			const { data, error } = await this.client
-				.from(this.TABLE_NAME)
-				.select('*');
-			if (error) {
-				console.error('Error getting all documents:', error);
-				return [];
+/**
+ * Gets all documents from the shared documents table for the current vault
+ */
+public async getAllDocuments(): Promise<any[]> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping getAllDocuments.');
+return [];
+}
+try {
+const { data, error } = await this.client
+.from(this.TABLE_NAME)
+.select('*')
+.eq('project_name', this.currentProjectName);
+if (error) {
+console.error('Error getting all documents:', error);
+return [];
 			}
 			return data || [];
 		} catch (error) {
@@ -1320,31 +1318,67 @@ export class SupabaseService {
 	/**
 	 * Creates document chunks with file_status_id
 	 */
-	public async createDocumentChunks(fileStatusId: number, chunks: DocumentChunk[]): Promise<void> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping createDocumentChunks.');
-			return;
-		}
-		try {
-			const chunkRecords = chunks.map(chunk => ({
-				vault_id: this.settings.vaultId,
-				file_status_id: fileStatusId,
-				chunk_index: chunk.chunk_index,
-				content: chunk.content,
-				metadata: chunk.metadata,
-				embedding: chunk.embedding,
-				vectorized_at: chunk.vectorized_at,
-				updated_at: new Date().toISOString()
-			}));
+public async createDocumentChunks(fileStatusId: number, chunks: DocumentChunk[]): Promise<void> {
+if (!this.client) {
+console.warn('Supabase client is not initialized. Skipping createDocumentChunks.');
+return;
+}
+try {
+const chunkRecords = chunks.map(chunk => this.buildDocumentRow(fileStatusId, chunk));
 
-			const { error } = await this.client
-				.from(this.TABLE_NAME)
-				.insert(chunkRecords);
-			if (error) throw error;
-		} catch (error) {
+const { error } = await this.client.from(this.TABLE_NAME).insert(chunkRecords);
+if (error) throw error;
+} catch (error) {
 			console.error('Failed to create chunks:', error);
 			throw error;
 		}
 	}
 
+}
+
+private get currentProjectName(): string {
+if (!this.settings.vaultId) {
+throw new Error('Vault ID is not initialized');
+}
+return this.settings.vaultId;
+}
+
+private buildDocumentRow(fileStatusId: number, chunk: DocumentChunk) {
+const now = new Date().toISOString();
+const metadata = {
+...chunk.metadata,
+vault_id: this.settings.vaultId,
+file_status_id: fileStatusId,
+chunk_index: chunk.chunk_index,
+vectorized_at: chunk.vectorized_at || now,
+updated_at: chunk.updated_at || now,
+};
+return {
+content: chunk.content,
+metadata,
+embedding: chunk.embedding && chunk.embedding.length > 0 ? chunk.embedding : null,
+project_name: this.currentProjectName,
+};
+}
+
+private mapRowToDocumentChunk(row: any): DocumentChunk {
+const metadata = (row.metadata || {}) as DocumentMetadata & {
+chunk_index?: number;
+file_status_id?: number;
+vault_id?: string;
+vectorized_at?: string;
+updated_at?: string;
+};
+return {
+id: row.id,
+vault_id: metadata.vault_id || this.settings.vaultId!,
+file_status_id: Number(metadata.file_status_id ?? 0),
+chunk_index: metadata.chunk_index ?? 0,
+content: row.content,
+metadata,
+embedding: row.embedding || [],
+vectorized_at: metadata.vectorized_at || new Date().toISOString(),
+created_at: row.created_at,
+updated_at: row.updated_at || metadata.updated_at,
+};
 }

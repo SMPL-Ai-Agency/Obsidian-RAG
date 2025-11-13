@@ -8,7 +8,7 @@ type MockClient = {
 
 type QueryResult<T> = { data: T; error: null };
 
-type FileStatusRecord = { file_path: string };
+type FileStatusRecord = { id: number; file_path: string };
 
 jest.mock('@supabase/supabase-js', () => ({
         createClient: jest.fn()
@@ -87,49 +87,46 @@ describe('SupabaseService.removeExcludedFiles', () => {
                 expect(mockClient.from).not.toHaveBeenCalled();
         });
 
-        it('applies exclusion filters safely and removes matching files', async () => {
-                const filesToRemove: FileStatusRecord[] = [
-                        { file_path: 'Projects/Client,Work/report.md' }
-                ];
+it('applies exclusion filters safely and removes matching files', async () => {
+const filesToRemove: FileStatusRecord[] = [
+{ id: 7, file_path: 'Projects/Client,Work/report.md' }
+];
 
-                const fileStatusSelectBuilder = createSelectBuilder<FileStatusRecord[]>(
-                        { data: filesToRemove, error: null }
-                );
-                const documentsDeleteBuilder = createDeleteBuilder();
-                const fileStatusDeleteBuilder = createDeleteBuilder();
+const fileStatusSelectBuilder = createSelectBuilder<FileStatusRecord[]>(
+{ data: filesToRemove, error: null }
+);
+const fileStatusDeleteBuilder = createDeleteBuilder();
 
-                let fileStatusCallCount = 0;
-                const fromMock = jest.fn((table: string) => {
-                        if (table === 'obsidian_file_status') {
-                                fileStatusCallCount += 1;
-                                return fileStatusCallCount === 1 ? fileStatusSelectBuilder : fileStatusDeleteBuilder;
-                        }
-                        if (table === 'obsidian_documents') {
-                                return documentsDeleteBuilder;
-                        }
-                        throw new Error(`Unexpected table ${table}`);
-                });
+let fileStatusCallCount = 0;
+const fromMock = jest.fn((table: string) => {
+if (table === 'obsidian_file_status') {
+fileStatusCallCount += 1;
+return fileStatusCallCount === 1 ? fileStatusSelectBuilder : fileStatusDeleteBuilder;
+}
+throw new Error(`Unexpected table ${table}`);
+});
 
-                const mockClient: MockClient = {
-                        from: fromMock
-                };
+const mockClient: MockClient = {
+from: fromMock
+};
 
-                mockCreateClient.mockReturnValue(mockClient as any);
+mockCreateClient.mockReturnValue(mockClient as any);
 
-                const service = new (SupabaseService as any)(createSettings()) as SupabaseService;
+const service = new (SupabaseService as any)(createSettings()) as SupabaseService;
+jest.spyOn(service, 'deleteDocumentChunks').mockResolvedValue();
 
-                const result = await service.removeExcludedFiles('vault-123', {
-                        excludedFolders: ['', 'Projects/Client,Work'],
-                        excludedFileTypes: ['MD'],
-                        excludedFilePrefixes: ['Archive_File'],
-                        excludedFiles: ['notes/"quote".md']
-                });
+const result = await service.removeExcludedFiles('vault-123', {
+excludedFolders: ['', 'Projects/Client,Work'],
+excludedFileTypes: ['MD'],
+excludedFilePrefixes: ['Archive_File'],
+excludedFiles: ['notes/"quote".md']
+});
 
-                expect(fileStatusSelectBuilder.or).toHaveBeenCalledWith(
-                        'file_path.ilike."Projects/Client,Work%",file_path.ilike."%.md",file_path.ilike."Archive\\_File%",file_path.eq."notes/\\"quote\\".md"'
-                );
-                expect(result).toBe(1);
-                expect(documentsDeleteBuilder.in).toHaveBeenCalledWith('file_path', ['Projects/Client,Work/report.md']);
-                expect(fileStatusDeleteBuilder.in).toHaveBeenCalledWith('file_path', ['Projects/Client,Work/report.md']);
-        });
+expect(fileStatusSelectBuilder.or).toHaveBeenCalledWith(
+'file_path.ilike."Projects/Client,Work%",file_path.ilike."%.md",file_path.ilike."Archive\\_File%",file_path.eq."notes/\\"quote\\".md"'
+);
+expect(service.deleteDocumentChunks).toHaveBeenCalledWith(7);
+expect(result).toBe(1);
+expect(fileStatusDeleteBuilder.in).toHaveBeenCalledWith('file_path', ['Projects/Client,Work/report.md']);
+});
 });

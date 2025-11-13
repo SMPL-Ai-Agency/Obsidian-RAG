@@ -51,49 +51,69 @@ describe('Multi-vault isolation across storage layers', () => {
                 (SupabaseService as unknown as { instance: SupabaseService | null }).instance = null;
         });
 
-        it('writes Supabase chunks with the active vault id for isolation', async () => {
-                const singleMock = jest.fn().mockResolvedValue({ data: { id: 42 }, error: null });
-                const selectMock = jest.fn(() => ({ single: singleMock }));
-                const upsertMock = jest.fn(() => ({ select: selectMock }));
-                const fromMock = jest.fn(() => ({ upsert: upsertMock }));
-                const rpcMock = jest.fn().mockResolvedValue({ data: null, error: null });
-                const mockClient = {
-                        from: fromMock,
-                        rpc: rpcMock
-                };
+it('writes Supabase chunks with the active vault id for isolation', async () => {
+const singleMock = jest.fn().mockResolvedValue({ data: { id: 42 }, error: null });
+const selectMock = jest.fn(() => ({ single: singleMock }));
+const upsertMock = jest.fn(() => ({ select: selectMock }));
+const deleteBuilder = {
+delete: jest.fn(() => deleteBuilder),
+eq: jest.fn(() => deleteBuilder),
+contains: jest.fn(() => Promise.resolve({ data: null, error: null }))
+};
+const insertBuilder = {
+insert: jest.fn(() => Promise.resolve({ data: null, error: null }))
+};
+let documentCallCount = 0;
+const fromMock = jest.fn((table: string) => {
+if (table === 'obsidian_file_status') {
+return { upsert: upsertMock };
+}
+if (table === 'documents') {
+documentCallCount += 1;
+return documentCallCount === 1 ? deleteBuilder : insertBuilder;
+}
+throw new Error(`Unexpected table ${table}`);
+});
 
-                mockCreateClient.mockReturnValue(mockClient as any);
-                const settings = cloneSettings();
-                const service = new (SupabaseService as any)(settings) as SupabaseService;
-                const metadata: DocumentMetadata = {
-                        obsidianId: 'ProjectA/Note.md',
-                        path: 'ProjectA/Note.md',
-                        lastModified: 1714768260000,
-                        created: 1714768200000,
-                        size: 128,
-                        tags: ['projectA'],
-                        aliases: ['note-a'],
-                        links: ['ProjectA/Index.md'],
-                        customMetadata: { contentHash: 'hash-a' }
-                };
-                const chunk = createChunk(metadata);
+const mockClient = {
+from: fromMock
+};
 
-                await service.upsertChunks([chunk]);
+mockCreateClient.mockReturnValue(mockClient as any);
+const settings = cloneSettings();
+const service = new (SupabaseService as any)(settings) as SupabaseService;
+const metadata: DocumentMetadata = {
+obsidianId: 'ProjectA/Note.md',
+path: 'ProjectA/Note.md',
+lastModified: 1714768260000,
+created: 1714768200000,
+size: 128,
+tags: ['projectA'],
+aliases: ['note-a'],
+links: ['ProjectA/Index.md'],
+customMetadata: { contentHash: 'hash-a' }
+};
+const chunk = createChunk(metadata);
 
-                expect(upsertMock).toHaveBeenCalledWith(
-                        expect.objectContaining({
-                                vault_id: 'vault-alpha',
-                                file_path: metadata.obsidianId
-                        }),
-                        expect.objectContaining({ onConflict: 'vault_id,file_path' })
-                );
-                expect(rpcMock).toHaveBeenCalledWith(
-                        'upsert_document_chunks',
-                        expect.objectContaining({
-                                p_vault_id: 'vault-alpha'
-                        })
-                );
-        });
+await service.upsertChunks([chunk]);
+
+expect(upsertMock).toHaveBeenCalledWith(
+expect.objectContaining({
+vault_id: 'vault-alpha',
+file_path: metadata.obsidianId
+}),
+expect.objectContaining({ onConflict: 'vault_id,file_path' })
+);
+expect(deleteBuilder.eq).toHaveBeenCalledWith('project_name', 'vault-alpha');
+expect(deleteBuilder.contains).toHaveBeenCalledWith({ file_status_id: 42 });
+expect(insertBuilder.insert).toHaveBeenCalledWith(
+expect.arrayContaining([
+expect.objectContaining({
+project_name: 'vault-alpha'
+})
+])
+);
+});
 
         const buildNeo4jHarness = () => {
                 const service = Object.create(Neo4jService.prototype) as Neo4jService;

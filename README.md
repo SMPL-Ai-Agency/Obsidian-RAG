@@ -61,7 +61,7 @@ Once configured, Obsidian RAG lets you automate and extend your knowledge base:
 ## Sync Modes & Hybrid Workflows
 Obsidian RAG can be pointed at one or both backends depending on what you are building:
 
-- **Supabase mode (Vector):** Generates embeddings and writes to the `obsidian_documents` tables only. Ideal when you just need semantic search or when Neo4j is temporarily offline.
+- **Supabase mode (Vector):** Generates embeddings and writes to the shared `documents` table (scoped by `project_name`). Ideal when you just need semantic search or when Neo4j is temporarily offline.
 - **Neo4j mode (Graph):** Skips embedding generation and only upserts entities/relationships into Neo4j using your configured `project_name` to keep vaults isolated.
 - **Hybrid mode:** Runs both stages sequentially (vector-first by default) or according to the execution order defined in **Settings → Sync → Hybrid strategy**. Writes are considered successful only when both services acknowledge them, preventing split-brain states.
 

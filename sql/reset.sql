@@ -1,10 +1,5 @@
--- Drop the tables and related objects
-DROP TABLE IF EXISTS public.obsidian_documents;
-DROP TABLE IF EXISTS public.obsidian_file_status;
+-- WARNING: This script removes data for a single vault/project only.
+-- Replace 'YOUR_VAULT_ID' with the vault/project you want to clear before running it.
 
--- Drop the functions
-DROP FUNCTION IF EXISTS public.enable_vectors();
-DROP FUNCTION IF EXISTS public.match_documents(vector(1536), TEXT, INT);
-DROP FUNCTION IF EXISTS public.init_obsidian_notes();
-
--- Note: We don't drop the vector extension as it might be used by other applications 
+DELETE FROM public.documents WHERE project_name = 'YOUR_VAULT_ID';
+DELETE FROM public.obsidian_file_status WHERE vault_id = 'YOUR_VAULT_ID';

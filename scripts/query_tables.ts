@@ -86,10 +86,10 @@ async function queryTables() {
         return;
     }
 
-    // Query obsidian_documents
-    console.log('Querying obsidian_documents...');
-    const documents = await service.getAllDocuments();
-    console.log('obsidian_documents:', documents);
+// Query documents
+console.log('Querying documents...');
+const documents = await service.getAllDocuments();
+console.log('documents:', documents);
 
     // Query obsidian_file_status
     console.log('\nQuerying obsidian_file_status...');
