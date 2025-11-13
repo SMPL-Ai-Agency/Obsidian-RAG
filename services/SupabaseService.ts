@@ -102,32 +102,32 @@ export class SupabaseService {
 		return SupabaseService.instance;
 	}
 
-	private async initializeDatabase(): Promise<void> {
-		if (!this.client) {
-			console.warn('Supabase client is not initialized. Skipping database initialization.');
-			return;
-		}
-		try {
-new Notice('Checking database connection...');
-// Verify connection by selecting from documents
-			const { error: testError } = await this.client
-				.from(this.TABLE_NAME)
-				.select('id')
-				.limit(1);
-			if (testError && !testError.message.includes('does not exist')) {
-				throw new Error(`Database connection failed: ${testError.message}`);
-			}
+        private async initializeDatabase(): Promise<void> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping database initialization.');
+                        return;
+                }
+                try {
+                        new Notice('Checking database connection...');
+                        // Verify connection by selecting from documents
+                        const { error: testError } = await this.client
+                                .from(this.TABLE_NAME)
+                                .select('id')
+                                .limit(1);
+                        if (testError && !testError.message.includes('does not exist')) {
+                                throw new Error(`Database connection failed: ${testError.message}`);
+                        }
                         // Ensure the file status and entity tables exist
                         await this.initializeFileStatusTable();
                         await this.initializeEntityTable();
                         new Notice('Database connection verified');
-			this.settings.supabase.initialized = true;
-		} catch (error) {
-			console.error('Database initialization error:', error);
-			new Notice(`Database error: ${(error as Error).message}`);
-			throw error;
-		}
-	}
+                        this.settings.supabase.initialized = true;
+                } catch (error) {
+                        console.error('Database initialization error:', error);
+                        new Notice(`Database error: ${(error as Error).message}`);
+                        throw error;
+                }
+        }
 
 	/**
 	 * Ensures that obsidian_file_status table exists.
@@ -140,9 +140,13 @@ new Notice('Checking database connection...');
                                 .from(this.FILE_STATUS_TABLE)
                                 .select('id')
                                 .limit(1);
-                        if (checkError && checkError.message.includes('does not exist')) {
-                                console.log('File status table missing. Please create it manually or run setup SQL.');
-                                new Notice('Some database tables are missing. Plugin will work with limited functionality.', 5000);
+                        if (checkError) {
+                                if (checkError.message.includes('does not exist')) {
+                                        console.warn('obsidian_file_status table missing. Attempting to create it automatically.');
+                                        await this.createFileStatusTable();
+                                } else {
+                                        throw checkError;
+                                }
                         } else {
                                 console.log('File status table exists and is accessible');
                         }
@@ -182,19 +186,97 @@ CREATE TABLE IF NOT EXISTS public.${this.ENTITY_TABLE} (
 CREATE INDEX IF NOT EXISTS ${this.ENTITY_TABLE}_project_name_idx ON public.${this.ENTITY_TABLE} (project_name);
 CREATE INDEX IF NOT EXISTS ${this.ENTITY_TABLE}_embedding_idx ON public.${this.ENTITY_TABLE} USING hnsw (embedding vector_cosine_ops);
 `;
+                await this.executeSchemaSql(ddl, 'create the entities table');
+        }
+
+        private async createFileStatusTable(): Promise<void> {
+                const ddl = `
+CREATE TABLE IF NOT EXISTS public.${this.FILE_STATUS_TABLE} (
+    id BIGSERIAL PRIMARY KEY,
+    vault_id TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    last_modified BIGINT NOT NULL,
+    last_vectorized TIMESTAMPTZ,
+    content_hash TEXT,
+    status TEXT,
+    tags TEXT[],
+    aliases TEXT[],
+    links TEXT[],
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(vault_id, file_path)
+);
+CREATE INDEX IF NOT EXISTS idx_file_status_vault_path ON public.${this.FILE_STATUS_TABLE}(vault_id, file_path);
+ALTER TABLE public.${this.FILE_STATUS_TABLE} ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Users can view their own vault file status"
+    ON public.${this.FILE_STATUS_TABLE}
+    FOR SELECT
+    USING (vault_id = current_setting('app.current_vault_id', true));
+CREATE POLICY IF NOT EXISTS "Service role can do everything"
+    ON public.${this.FILE_STATUS_TABLE}
+    USING (auth.role() = 'service_role');
+`;
+                await this.executeSchemaSql(ddl, 'create the obsidian_file_status table');
+                new Notice('obsidian_file_status table created automatically');
+        }
+
+        private async executeSchemaSql(sql: string, context: string): Promise<void> {
+                if (!this.client) return;
+                const rpc = (this.client as any).rpc?.bind(this.client);
+                if (rpc) {
+                        const { error } = await rpc('execute_sql', { sql });
+                        if (!error) {
+                                return;
+                        }
+                        if (!this.isMissingExecuteSqlError(error)) {
+                                throw new Error(`Failed to ${context}: ${error.message}`);
+                        }
+                        console.warn('execute_sql RPC not available; attempting REST fallback.');
+                } else {
+                        console.warn('Supabase client missing rpc helper; attempting REST fallback.');
+                }
+
+                await this.executeSchemaSqlViaRest(sql, context);
+        }
+
+        private async executeSchemaSqlViaRest(sql: string, context: string): Promise<void> {
+                if (!this.settings.supabase.url || !this.settings.supabase.apiKey) {
+                        throw new Error('Supabase credentials missing while executing schema SQL.');
+                }
+                if (typeof fetch !== 'function') {
+                        throw new Error(
+                                `Cannot ${context} automatically because fetch is unavailable. Please run sql/setup.sql manually.`
+                        );
+                }
+
                 try {
-                        const rpc = (this.client as any).rpc?.bind(this.client);
-                        if (rpc) {
-                                const { error } = await rpc('execute_sql', { sql: ddl });
-                                if (error) {
-                                        console.warn('Failed to auto-create entities table via RPC:', error.message);
-                                }
-                        } else {
-                                console.warn('execute_sql RPC not available; please run the entities table SQL manually.');
+                        const response = await fetch(`${this.settings.supabase.url}/rest/v1/rpc/execute_sql`, {
+                                method: 'POST',
+                                headers: {
+                                        apikey: this.settings.supabase.apiKey,
+                                        Authorization: `Bearer ${this.settings.supabase.apiKey}`,
+                                        'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ sql }),
+                        });
+
+                        if (!response.ok) {
+                                const details = await response.text();
+                                throw new Error(details || `HTTP ${response.status}`);
                         }
                 } catch (error) {
-                        console.warn('Entities table creation RPC unavailable. Please run SQL manually.', error);
+                        if (this.isMissingExecuteSqlError(error)) {
+                                throw new Error(
+                                        `Supabase RPC execute_sql is unavailable. Please run the schema from sql/setup.sql manually to ${context}. Details: ${(error as Error).message}`,
+                                );
+                        }
+                        throw new Error(`Failed to ${context}: ${(error as Error).message}`);
                 }
+        }
+
+        private isMissingExecuteSqlError(error: unknown): boolean {
+                const message = (error as { message?: string })?.message?.toLowerCase?.();
+                return Boolean(message && message.includes('execute_sql') && message.includes('does not'));
         }
 
 /**

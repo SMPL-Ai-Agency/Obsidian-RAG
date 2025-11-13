@@ -113,6 +113,11 @@ See [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTAL
 - n8n workflow examples (e.g., Telegram bot)
 - Advanced troubleshooting
 
+### Supabase schema automation
+- Run [`sql/setup.sql`](sql/setup.sql) (or `make setup-db`) once to provision the shared `documents` table, indexes, and helper policies for your Supabase project.
+- The plugin now auto-creates the `obsidian_file_status` and `entities` tables the first time Supabase reports "relation does not exist," reusing the exact SQL from `sql/setup.sql` so the schema never drifts between manual and automated installs.
+- If your Supabase project does not expose the `execute_sql` RPC, the plugin falls back to the REST endpoint and then surfaces an actionable error telling you to paste the block from `sql/setup.sql` into the SQL editor (or run the Makefile target) to finish setup.
+
 ### Neo4j Setup Overview
 1. Start a Neo4j 5.x database locally (Desktop, Docker, etc.) or provision an Aura instance.
 2. Copy the **Bolt URL**, **username**, **password**, and optional database name.
