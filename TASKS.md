@@ -53,6 +53,6 @@ All implementation tasks must strictly follow the architecture design described 
 | Task | GitHub Issue | Notes |
 | ---- | ------------ | ----- |
 | Neo4j batch limits & hybrid sync hardening | n/a (addressed internally) | QueueService now rolls back Supabase or logs a retryable failure via SyncFileManager when Neo4j rejects batches, and Settings exposes the neo4jBatchLimit "Aura batch cap" slider so operators can tune Aura-friendly batch sizes. |
-| Release automation polish | (link when created) | Tie GitHub issue IDs back to this table whenever CHANGELOG/manifest work is planned. |
+| Release automation polish | n/a (in-repo) | Release helpers now run lint/test/build/docs, create the filtered ZIP, and log docs/artefact paths so GA metadata stays reviewable. |
 
 > Keep this table updated as community GitHub issues are opened. Mirroring IDs here lets vault owners discover active discussions without leaving Obsidian.

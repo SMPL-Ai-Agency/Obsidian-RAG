@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- _TBD_
+- Automated release packaging in `scripts/release-utils.sh` that runs `yarn docs` and zips the runtime bundle into `release/obsidian-rag-<version>.zip` so the `make release-*` targets emit both the distributable and refreshed API docs.
+- Documentation updates in `release/RELEASE_ARTIFACTS.md` describing how downstream consumers can mirror the generated TypeDoc HTML under `docs/api/`.
 
 ### Changed
-- _TBD_
+- Promoted the plugin metadata to the GA version `1.1.0` across `manifest.json`, `package.json`, and `versions.json`, ensuring the release automation produces non-beta tags.
+- Updated `version-bump.mjs` so the script mirrors the new GA versioning flow without prerelease suffixes.
 
 ## [1.1.0-beta] - 2025-11-13
 

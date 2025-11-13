@@ -1,8 +1,12 @@
-# 1.1.0-beta Release Artifacts
+# Release Artifacts
 
-The Git repository cannot include binary archives, so upload the following file manually when preparing the pull request or GitHub Release:
+# Release flow overview
 
-- `release/obsidian-rag-1.1.0-beta.zip`
+`make release-*` now produces the distributable ZIP and regenerates the TypeDoc site in `docs/api/`. The ZIP is recorded in the Git index via `git add -N release/obsidian-rag-<version>.zip` so reviewers can verify it exists, even though we do not commit binary payloads.
+
+The Git repository still cannot include binary archives, so upload the following file manually when preparing the pull request or GitHub Release:
+
+- `release/obsidian-rag-<version>.zip`
 
 The PR already contains every other file that needs to accompany the release. Double-check that the following tracked files are included when reviewing or cherry-picking the change set:
 
@@ -13,6 +17,7 @@ The PR already contains every other file that needs to accompany the release. Do
 5. `settings/SettingsTab.ts`
 6. `utils/FileTracker.ts`
 7. `versions.json`
+8. `docs/api/` (TypeDoc output consumed by downstream docs mirrors)
 
 If new release notes or metadata updates are required, edit the files above and regenerate the distributable before uploading the ZIP.
 
@@ -29,10 +34,10 @@ Follow this quick checklist before tagging a release:
    - Run `yarn version` or `node version-bump.mjs` if you prefer the scripted helper.
 2. **Verify build output**
    - Run `yarn build` and confirm `main.js`, `manifest.json`, and `styles.css` are regenerated.
-   - Execute `yarn docs` if you plan to publish the generated API reference alongside the release.
+   - Execute `yarn docs` to refresh the API reference in `docs/api/`. Downstream platform docs mirror this folder directly, so keep it in the commit.
 3. **Prepare the archive**
    - Zip the production bundle into `release/obsidian-rag-<version>.zip` (only `main.js`, `manifest.json`, and `styles.css`).
-   - Confirm no docs, AGENTS files, or build caches make it into the artifact.
+   - Confirm no docs, AGENTS files, or build caches make it into the artifact. The release helper already enforces this filter, so re-run `make release-*` if you need to regenerate the ZIP.
 4. **Tag and push**
    - Create an annotated tag (e.g., `git tag -a v1.0.0 -m "Release v1.0.0"`).
-   - Push the tag and the release branch to GitHub so downstream automations (n8n, CLI scripts) can pick up the new version.
+   - Push the tag and the release branch to GitHub so downstream automations (n8n, CLI scripts, doc mirrors) can pick up the new version and static API docs.
