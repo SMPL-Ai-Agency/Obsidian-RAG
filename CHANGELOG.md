@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Entity preview overlay inside the NotificationManager so advanced entity syncs can be validated without leaving Obsidian.
+- Local embedding cache in `EmbeddingService` that stores Ollama/OpenAI responses in browser storage to avoid redundant API calls.
+- Batched entity helpers in `Neo4jService` with shared `runWrite` error-wrapping to simplify future GraphRAG upserts.
+
 ### Changed
 - Updated README.md and INSTALL.md to clarify the ingestion-only workflow, document the available command palette controls, and replace broken documentation links.
+- Filtered GraphBuilder relationship parsing to drop low-confidence edges and improved Jest coverage around malformed LLM responses.
+- Pinned `ts-jest` to `29.2.5` to prevent future regressions from tooling churn.
 
 ## [1.1.0-alpha] - 2025-11-13
 

@@ -55,11 +55,10 @@ it('writes Supabase chunks with the active vault id for isolation', async () => 
 const singleMock = jest.fn().mockResolvedValue({ data: { id: 42 }, error: null });
 const selectMock = jest.fn(() => ({ single: singleMock }));
 const upsertMock = jest.fn(() => ({ select: selectMock }));
-const deleteBuilder = {
-delete: jest.fn(() => deleteBuilder),
-eq: jest.fn(() => deleteBuilder),
-contains: jest.fn(() => Promise.resolve({ data: null, error: null }))
-};
+const deleteBuilder: any = {};
+deleteBuilder.delete = jest.fn(() => deleteBuilder);
+deleteBuilder.eq = jest.fn(() => deleteBuilder);
+deleteBuilder.contains = jest.fn(() => Promise.resolve({ data: null, error: null }));
 const insertBuilder = {
 insert: jest.fn(() => Promise.resolve({ data: null, error: null }))
 };

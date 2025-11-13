@@ -1,4 +1,4 @@
-import neo4j, { Driver, Session } from 'neo4j-driver';
+import neo4j, { Driver, Session, ManagedTransaction } from 'neo4j-driver';
 import { DocumentChunk, DocumentMetadata } from '../models/DocumentChunk';
 import { ObsidianRAGSettings, Neo4jSettings } from '../settings/Settings';
 import { EntityExtractionResult } from './EntityExtractor';
@@ -45,20 +45,17 @@ export class Neo4jService {
         }
 
         private async initializeSchema(): Promise<void> {
-                const session = this.getSession();
-                try {
-                        await session.run(
+                await this.runWrite('initializeSchema', async tx => {
+                        await tx.run(
                                 'CREATE CONSTRAINT document_project IF NOT EXISTS FOR (d:Document) REQUIRE (d.project_name, d.path) IS UNIQUE'
                         );
-                        await session.run(
+                        await tx.run(
                                 'CREATE CONSTRAINT chunk_project IF NOT EXISTS FOR (c:Chunk) REQUIRE (c.project_name, c.chunk_id) IS UNIQUE'
                         );
-                        await session.run(
+                        await tx.run(
                                 'CREATE CONSTRAINT entity_project IF NOT EXISTS FOR (e:Entity) REQUIRE (e.project_name, e.entity_id) IS UNIQUE'
                         );
-                } finally {
-                        await session.close();
-                }
+                });
         }
 
         public async upsertDocumentGraph(
@@ -66,7 +63,6 @@ export class Neo4jService {
                 chunks: DocumentChunk[],
                 extraction: EntityExtractionResult | null
         ): Promise<void> {
-                const session = this.getSession();
                 const chunkPayload = chunks.map(chunk => ({
                         id: (chunk.metadata as any)?.graphChunkId || `${metadata.path}::${chunk.chunk_index}`,
                         chunkIndex: chunk.chunk_index,
@@ -84,8 +80,7 @@ export class Neo4jService {
                         links: metadata.links || [],
                         size: metadata.size ?? 0,
                 };
-                try {
-                        await session.executeWrite(async tx => {
+                await this.runWrite('upsertDocumentGraph', async tx => {
                                 await tx.run(
                                         `MERGE (doc:Document {project_name: $projectName, path: $path})
 SET doc += {
@@ -173,15 +168,10 @@ SET rel.description = relationship.description,
                                         );
                                 }
                         });
-                } finally {
-                        await session.close();
-                }
         }
 
         public async deleteDocument(path: string): Promise<void> {
-                const session = this.getSession();
-                try {
-                        await session.executeWrite(tx =>
+                await this.runWrite('deleteDocument', tx =>
                                 tx.run(
                                         `MATCH (doc:Document {project_name: $projectName, path: $path})
 OPTIONAL MATCH (doc)-[:HAS_CHUNK]->(chunk:Chunk {project_name: $projectName})
@@ -191,9 +181,6 @@ DETACH DELETE doc`,
                                         { projectName: this.projectName, path }
                                 )
                         );
-                } finally {
-                        await session.close();
-                }
         }
 
         public async close(): Promise<void> {
@@ -208,17 +195,58 @@ DETACH DELETE doc`,
                 if (!entities.length && !relationships.length) {
                         return;
                 }
+                await this.runWrite('upsertAdvancedEntities', async tx => {
+                        await this.mergeDocumentShell(tx, notePath);
+                        if (entities.length) {
+                                await this.mergeAdvancedEntities(tx, notePath, entities);
+                        }
+                        if (relationships.length) {
+                                await this.mergeAdvancedRelationships(tx, relationships);
+                        }
+                });
+        }
+
+        public async batchUpsertAdvancedEntities(
+                payloads: { notePath: string; entities: AdvancedEntity[]; relationships: AdvancedRelationship[] }[]
+        ): Promise<void> {
+                const filtered = payloads.filter(payload => payload.entities.length || payload.relationships.length);
+                if (!filtered.length) return;
+                await this.runWrite('batchUpsertAdvancedEntities', async tx => {
+                        for (const payload of filtered) {
+                                await this.mergeDocumentShell(tx, payload.notePath);
+                                if (payload.entities.length) {
+                                        await this.mergeAdvancedEntities(tx, payload.notePath, payload.entities);
+                                }
+                                if (payload.relationships.length) {
+                                        await this.mergeAdvancedRelationships(tx, payload.relationships);
+                                }
+                        }
+                });
+        }
+
+        private async runWrite<T>(context: string, handler: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
                 const session = this.getSession();
                 try {
-                        await session.executeWrite(async tx => {
-                                await tx.run(
-                                        `MERGE (doc:Document {project_name: $projectName, path: $path})
+                        return await session.executeWrite(handler);
+                } catch (error) {
+                        console.error(`[Neo4jService] ${context} failed`, error);
+                        throw new Error(`${context} failed: ${(error as Error).message}`);
+                } finally {
+                        await session.close();
+                }
+        }
+
+        private async mergeDocumentShell(tx: ManagedTransaction, notePath: string): Promise<void> {
+                await tx.run(
+                        `MERGE (doc:Document {project_name: $projectName, path: $path})
 SET doc.updated_at = datetime()`,
-                                        { projectName: this.projectName, path: notePath }
-                                );
-                                if (entities.length) {
-                                        await tx.run(
-                                                `UNWIND $entities AS entity
+                        { projectName: this.projectName, path: notePath }
+                );
+        }
+
+        private async mergeAdvancedEntities(tx: ManagedTransaction, notePath: string, entities: AdvancedEntity[]): Promise<void> {
+                await tx.run(
+                        `UNWIND $entities AS entity
 MERGE (e:Entity {project_name: $projectName, name: entity.name})
 SET e.type = entity.type,
     e.description = entity.description,
@@ -227,24 +255,20 @@ WITH e
 MATCH (doc:Document {project_name: $projectName, path: $path})
 MERGE (doc)-[r:MENTIONS]->(e)
 SET r.last_seen = datetime()`,
-                                                { projectName: this.projectName, path: notePath, entities }
-                                        );
-                                }
-                                if (relationships.length) {
-                                        await tx.run(
-                                                `UNWIND $relationships AS rel
+                        { projectName: this.projectName, path: notePath, entities }
+                );
+        }
+
+        private async mergeAdvancedRelationships(tx: ManagedTransaction, relationships: AdvancedRelationship[]): Promise<void> {
+                await tx.run(
+                        `UNWIND $relationships AS rel
 MATCH (src:Entity {project_name: $projectName, name: rel.src})
 MATCH (tgt:Entity {project_name: $projectName, name: rel.tgt})
 MERGE (src)-[r:RELATES_TO {project_name: $projectName, description: rel.description}]->(tgt)
 SET r.keywords = rel.keywords,
     r.weight = rel.weight,
     r.updated_at = datetime()`,
-                                                { projectName: this.projectName, relationships }
-                                        );
-                                }
-                        });
-                } finally {
-                        await session.close();
-                }
+                        { projectName: this.projectName, relationships }
+                );
         }
 }

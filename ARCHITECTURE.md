@@ -38,9 +38,9 @@ Obsidian-RAG/
    - **SettingsTab.ts**: Renders UI with tabs for Supabase/Neo4j config, connection tests, resets, and previews. Includes status indicators and donation QR.
 
 3. **Services Layer** (Core Business Logic):
-   - **EmbeddingService.ts**: Generates embeddings via Ollama (default) or OpenAI with client-side rate limiting and padding to 768-d vectors.
+   - **EmbeddingService.ts**: Generates embeddings via Ollama (default) or OpenAI with client-side rate limiting, padding to 768-d vectors, and a local-storage cache that deduplicates requests for unchanged chunks.
    - **SupabaseService.ts**: Manages vector store ops—initializes the `documents` and `obsidian_file_status` tables, serializes per-file writes, and exposes helpers for deletes or metadata lookups.
-   - **Neo4jService.ts**: Upserts graph nodes/relationships for documents, chunks, entities, and relationships, and enforces uniqueness constraints scoped by `project_name`.
+   - **Neo4jService.ts**: Upserts graph nodes/relationships for documents, chunks, entities, and relationships, enforces uniqueness constraints scoped by `project_name`, and exposes error-wrapped helpers for batch entity/relationship upserts.
    - **QueueService.ts**: Custom FIFO queue that uses `TextSplitter`, `MetadataExtractor`, and `HybridRAGService` to execute vector and/or graph stages depending on the configured `SyncMode`. Emits progress via `EventEmitter` for status widgets.
    - **HybridRAGService.ts**: Enforces hybrid execution order (vector-first, graph-first, or parallel) and dual-write requirements.
    - **OfflineQueueManager.ts**: Stores serialized operations in vault storage, retries with exponential backoff, and uses `SyncFileManager` or Supabase APIs to reconcile.
@@ -54,7 +54,7 @@ Obsidian-RAG/
 4. **Observability & UX**:
    - **StatusManager.ts**: Updates the status bar item with plugin state transitions (initializing, waiting for sync, ready, error).
    - **ModePreviewManager.ts**: Records the last few sync outcomes, renders summaries/ribbon buttons, and exposes modal history plus summaries in `SettingsTab.ts`.
-   - **NotificationManager.ts**: Displays progress notices during long-running operations (initial sync, queue retries) and integrates with Obsidian toasts.
+   - **NotificationManager.ts**: Displays progress notices during long-running operations (initial sync, queue retries), integrates with Obsidian toasts, and renders the entity preview overlay fed by `GraphBuilder` so users can validate extracted nodes/relationships in real time.
    - **SettingsTab.ts**: Presents Supabase/Neo4j credentials, hybrid controls, Mode Preview summaries, and vault initialization/reset helpers alongside connection tests.
 
 5. **Utils Layer**:

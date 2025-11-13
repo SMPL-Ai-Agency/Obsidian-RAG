@@ -480,6 +480,7 @@ this.eventsRegistered = false;
                                 neo4jService: this.neo4jService,
                                 embeddingService: this.embeddingService,
                                 errorHandler: this.errorHandler,
+                                notificationManager: this.notificationManager,
                                 config: {
                                         enableAdvancedEntities: this.settings.enableAdvancedEntities,
                                         entityTypes: this.settings.entityTypes || ['person', 'organization', 'location'],

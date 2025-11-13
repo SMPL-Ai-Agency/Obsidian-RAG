@@ -26,6 +26,19 @@ describe('EmbeddingService provider selection', () => {
                 openai: { apiKey: '', model: 'text-embedding-3-small', maxTokens: 8000, temperature: 0 },
         };
         const errorHandler = { handleError: jest.fn() } as unknown as ErrorHandler;
+        const createStorageMock = () => {
+                const store: Record<string, string> = {};
+                return {
+                        getItem: jest.fn((key: string) => (key in store ? store[key] : null)),
+                        setItem: jest.fn((key: string, value: string) => {
+                                store[key] = value;
+                        }),
+                        removeItem: jest.fn((key: string) => {
+                                delete store[key];
+                        }),
+                };
+        };
+        let storageMock: ReturnType<typeof createStorageMock>;
 
         beforeAll(() => {
                 global.fetch = jest.fn();
@@ -35,6 +48,12 @@ describe('EmbeddingService provider selection', () => {
                 jest.clearAllMocks();
                 (global.fetch as jest.Mock).mockReset();
                 (Notice as unknown as jest.Mock).mockClear();
+                storageMock = createStorageMock();
+                (globalThis as any).localStorage = storageMock;
+        });
+
+        afterEach(() => {
+                delete (globalThis as any).localStorage;
         });
 
         const createService = (overrides?: Partial<EmbeddingProviderSettings>) => {
@@ -83,5 +102,19 @@ describe('EmbeddingService provider selection', () => {
                         openai: { ...baseSettings.openai, apiKey: '' },
                 });
                 expect(service.isInitialized()).toBe(false);
+        });
+
+        it('caches Ollama embeddings to avoid redundant requests', async () => {
+                (global.fetch as jest.Mock).mockResolvedValue({
+                        ok: true,
+                        json: () => Promise.resolve({ embedding: [0.1, 0.2], model: 'nomic-embed-text' }),
+                });
+                const service = createService({
+                        ollama: { enabled: true, url: 'http://localhost:11434', model: 'nomic-embed-text', fallbackToOpenAI: false },
+                });
+                await service.generateEmbedding('Repeated chunk');
+                await service.generateEmbedding('Repeated chunk');
+                expect(global.fetch).toHaveBeenCalledTimes(1);
+                expect(storageMock.setItem).toHaveBeenCalled();
         });
 });

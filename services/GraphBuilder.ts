@@ -6,6 +6,7 @@ import { ErrorHandler } from '../utils/ErrorHandler';
 import { AdvancedEntityExtractionParams, CustomEntityRule, Entity } from '../models/Entity';
 import { Relationship } from '../models/Relationship';
 import { DocumentMetadata } from '../models/DocumentChunk';
+import { NotificationManager } from '../utils/NotificationManager';
 
 export interface GraphBuilderConfig {
         enableAdvancedEntities: boolean;
@@ -22,6 +23,7 @@ interface GraphBuilderDependencies {
         embeddingService: EmbeddingService | null;
         errorHandler: ErrorHandler;
         config: GraphBuilderConfig;
+        notificationManager?: NotificationManager | null;
 }
 
 export class GraphBuilder {
@@ -31,6 +33,8 @@ export class GraphBuilder {
         private embeddingService: EmbeddingService | null;
         private errorHandler: ErrorHandler;
         private config: GraphBuilderConfig;
+        private notificationManager: NotificationManager | null;
+        private readonly relationshipConfidenceThreshold = 0.45;
 
         constructor(options: GraphBuilderDependencies) {
                 this.metadataExtractor = options.metadataExtractor;
@@ -39,6 +43,7 @@ export class GraphBuilder {
                 this.embeddingService = options.embeddingService;
                 this.errorHandler = options.errorHandler;
                 this.config = options.config;
+                this.notificationManager = options.notificationManager ?? null;
         }
 
         public updateConfig(config: Partial<GraphBuilderConfig>): void {
@@ -57,12 +62,17 @@ export class GraphBuilder {
                 this.neo4jService = service;
         }
 
+        public updateNotificationManager(manager: NotificationManager | null): void {
+                this.notificationManager = manager;
+        }
+
         public isEnabled(): boolean {
                 return this.config.enableAdvancedEntities && !!this.embeddingService;
         }
 
         public async processNote(content: string, metadata: DocumentMetadata): Promise<void> {
                 if (!this.isEnabled()) {
+                        this.notificationManager?.clearEntityPreview();
                         return;
                 }
                 const params: AdvancedEntityExtractionParams = {
@@ -73,10 +83,12 @@ export class GraphBuilder {
                 };
                 const entities = await this.metadataExtractor.extractEntitiesAdvanced(params, this.embeddingService);
                 if (!entities.length) {
+                        this.notificationManager?.clearEntityPreview();
                         return;
                 }
                 const relationships = await this.inferRelationships(entities, content);
                 await this.persistEntities(metadata, entities, relationships);
+                this.notifyEntityPreview(metadata.path || metadata.obsidianId || 'note', entities, relationships);
         }
 
         private async inferRelationships(entities: Entity[], text: string): Promise<Relationship[]> {
@@ -100,7 +112,8 @@ export class GraphBuilder {
                                         description: rel.description ? String(rel.description) : '',
                                         keywords: Array.isArray(rel.keywords) ? rel.keywords.map((kw: any) => String(kw)) : [],
                                         weight: typeof rel.weight === 'number' ? rel.weight : 0.5,
-                                }));
+                                }))
+                                .filter(rel => rel.weight >= this.relationshipConfidenceThreshold);
                         const map = new Map<string, Relationship>();
                         for (const rel of sanitized) {
                                 const key = `${rel.src.toLowerCase()}::${rel.tgt.toLowerCase()}::${rel.description}`;
@@ -165,5 +178,27 @@ export class GraphBuilder {
                 } catch (error) {
                         this.errorHandler.handleError(error, { context: 'GraphBuilder.upsertGraphEntities' }, 'warn');
                 }
+        }
+
+        private notifyEntityPreview(notePath: string, entities: Entity[], relationships: Relationship[]): void {
+                if (!this.notificationManager || !this.notificationManager.updateEntityPreview) {
+                        return;
+                }
+                const previewEntities = entities.slice(0, 6).map(entity => ({
+                        name: entity.name,
+                        type: entity.type,
+                        summary: entity.description,
+                }));
+                const relationshipPreview = relationships.slice(0, 6).map(rel => ({
+                        src: rel.src,
+                        tgt: rel.tgt,
+                        weight: rel.weight,
+                        description: rel.description,
+                }));
+                this.notificationManager.updateEntityPreview({
+                        notePath,
+                        entities: previewEntities,
+                        relationships: relationshipPreview,
+                });
         }
 }
