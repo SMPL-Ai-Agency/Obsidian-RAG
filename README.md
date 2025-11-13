@@ -103,6 +103,14 @@ The queue detects offline states per mode: Supabase mode pauses when either Supa
 
 Pair Hybrid mode with n8n workflows to run **vector + graph** lookups in a single automation: query Supabase for candidate chunks, then enrich answers with graph context from Neo4j for richer assistants.
 
+### Manual Offline Queue Recovery Runbook
+The offline queue is always on guard for outages, but there are times when you want to inspect and replay it manually (e.g., before a release gate or after an ISP hiccup). Use the following checklist:
+
+1. **Enable the queue via settings:** Open `Settings → Sync` and confirm `sync.offlineQueueEnabled` is `true`. Vault owners can also set the flag directly inside `.obsidian/plugins/obsidian-rag/data.json` before launching Obsidian to ensure queueing is active on cold start.
+2. **Inspect queued operations:** In Obsidian’s developer tools console (`Cmd/Ctrl+Opt+I`), run `JSON.parse(window.localStorage.getItem('obsidian-rag-offline-queue') ?? '[]')` to review the serialized operations, timestamps, and retry counts persisted under that key. Filter the array for the affected file IDs before attempting a replay.
+3. **Manually trigger reconciliation:** Still in the console, grab the plugin instance via `const plugin = app.plugins.plugins['obsidian-rag']; const manager = plugin?.fileTracker?.offlineQueueManager;` and call `await manager?.processQueue();` whenever you want to flush the queue on demand. This uses the same `processQueue()` logic that automatically runs when connectivity returns.
+4. **Interpret Notices when Supabase remains offline:** Each failed attempt surfaces `Offline operation failed for file <path>: <reason>` via Obsidian’s `Notice` system. Repeated notices indicate Supabase (or your vector endpoint) is still unreachable; keep the queue paused until the message changes to the success logs in the console.
+
 ---
 
 ## Installation
