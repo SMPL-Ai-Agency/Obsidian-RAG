@@ -40,6 +40,7 @@ Before you begin, ensure you have:
    - In the same screen, copy the **Service Role API key** (labeled `service_role`). Obsidian RAG performs authenticated inserts/updates into `documents`, `obsidian_file_status`, and `entities`, so the anon key cannot bypass Row Level Security for those writes.
    - *(Optional)* If you're also preparing local tooling, paste these values into [`SUPABASE_URL` and `SUPABASE_ANON_KEY` in `.env.template`](.env.template) so your CLI scripts match the plugin configuration.
    - You do **not** need the database password for the in-app configuration—keep it for direct Postgres access or Makefile helpers only.
+   - Run [`sql/setup.sql`](sql/setup.sql) (or `make setup-db`) once per project to create the shared `documents` table, vector indexes, and helper policies. The plugin now takes over the `obsidian_file_status` + `entities` tables automatically, but it still expects the base schema to exist.
 
 3. **Configure the Plugin**
    - Open Obsidian RAG settings in Obsidian
@@ -63,7 +64,8 @@ Before you begin, ensure you have:
      - Set the LLM model used for prompts (e.g., `llama3`)
      - Toggle advanced extraction, adjust entity types, and add regex-based custom rules as needed
    - Click "Initialize Database" to create the required tables
-     - This includes the new `entities` table used for vectorized entity storage; if your Supabase instance blocks custom RPCs, run the SQL snippet from `services/SupabaseService.ts#createEntitiesTable` manually.
+     - The plugin automatically provisions `obsidian_file_status` and `entities` if Supabase reports "relation does not exist" by replaying the SQL stored in `sql/setup.sql`.
+     - If your Supabase instance blocks the `execute_sql` RPC entirely, the plugin will fall back to a REST call and then raise an actionable error telling you to paste the schema block from `sql/setup.sql` (or run `make setup-db`) to finish the migration manually.
 
 4. **Trigger & Verify Sync**
    - The plugin automatically watches your vault and queues changes for ingestion.
