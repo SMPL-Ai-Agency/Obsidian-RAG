@@ -29,7 +29,8 @@ These are the built-in mechanisms and core behaviors the plugin implements.
 
 - **Automatic note synchronization:** Detects new, edited, or deleted notes and syncs them in near-real-time to **Supabase (vector)** and **Neo4j (graph)**.  
 - **Embedding generation service:** Uses **Ollama by default** for embeddings, with optional **OpenAI-compatible** models.  
-- **Graph construction engine:** Builds Neo4j nodes and relationships for notes, tags, and entities — enabling GraphRAG-style semantic-graph queries.  
+- **Graph construction engine:** Builds Neo4j nodes and relationships for notes, tags, and entities — enabling GraphRAG-style semantic-graph queries.
+- **LLM-powered entity extraction:** Optional entity/relationship mining driven by Ollama/OpenAI prompts, complete with Supabase entity vectors and Neo4j relationship weights.
 - **Queue and task management:** Handles sync jobs, retries, and parallel processing via an internal queue.  
 - **Offline queue and reconciliation:** Stores unsent tasks locally and runs them once reconnected.  
 - **Configurable exclusions:** Lets you exclude folders/files (e.g., templates, private journals, daily logs).  
@@ -55,6 +56,21 @@ Once configured, Obsidian RAG lets you automate and extend your knowledge base:
 - **Local-first privacy mode:** Run embeddings and databases entirely offline for full data control.  
 - **Cross-device synchronization:** Keep notes and metadata consistent via a shared **sync state file**.  
 - **Offline operation:** Continue editing offline — updates queue locally and sync on reconnect.
+
+---
+
+## Advanced Entity Extraction (optional)
+The **LLM & Entity Extraction** section in the plugin settings enables a semantic pipeline that:
+
+- Prompts Ollama (preferred) or OpenAI with a dedicated LLM model (`Settings → LLM model`) to extract entities with descriptions.
+- Queues multiple “gleaning” passes so difficult entities can be re-requested with iterative hints.
+- Applies user-defined regex hints before LLM calls so critical patterns are always captured.
+- Embeds each entity and stores it in a new `entities` table inside Supabase for similarity search and deduplication.
+- Mirrors those entities and their inferred relationships (weights, keywords, descriptions) into Neo4j via the new `GraphBuilder` service.
+
+> **Tip:** Install a generative Ollama model (e.g., `ollama pull llama3`) before enabling this feature so prompts and embeddings can stay local. The plugin falls back to OpenAI-compatible chat models when Ollama is unavailable.
+
+Entity extraction runs automatically after each note sync and respects your existing `project_name` isolation, meaning each vault keeps its own scoped entity vectors and graph nodes.
 
 ---
 

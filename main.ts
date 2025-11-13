@@ -14,6 +14,7 @@ import { StatusManager, PluginStatus } from './services/StatusManager';
 import { SyncDetectionManager } from './services/SyncDetectionManager';
 import { Neo4jService } from './services/Neo4jService';
 import { EntityExtractor } from './services/EntityExtractor';
+import { GraphBuilder } from './services/GraphBuilder';
 import {
 	ObsidianRAGSettings,
 	DEFAULT_SETTINGS,
@@ -53,11 +54,12 @@ export default class ObsidianRAGPlugin extends Plugin {
 	private initialSyncManager: InitialSyncManager | null = null;
 	private metadataExtractor: MetadataExtractor | null = null;
 	private statusManager: StatusManager | null = null;
-	private syncDetectionManager: SyncDetectionManager | null = null;
-	private eventsRegistered = false;
-	private modePreviewManager: ModePreviewManager | null = null;
-	private modePreviewRibbonEl: HTMLElement | null = null;
-	private queueEventUnsubscribers: Array<() => void> = [];
+        private syncDetectionManager: SyncDetectionManager | null = null;
+        private eventsRegistered = false;
+        private modePreviewManager: ModePreviewManager | null = null;
+        private modePreviewRibbonEl: HTMLElement | null = null;
+        private queueEventUnsubscribers: Array<() => void> = [];
+        private graphBuilder: GraphBuilder | null = null;
 
 	async onload() {
 		console.log('Loading Obsidian RAG Plugin...');
@@ -457,8 +459,9 @@ this.eventsRegistered = false;
                                 this.neo4jService = null;
                         }
 
-                        this.embeddingService = useSupabase
-                                ? new EmbeddingService(this.settings.embeddings, this.errorHandler)
+                        const needsEmbeddingService = useSupabase || this.settings.enableAdvancedEntities;
+                        this.embeddingService = needsEmbeddingService
+                                ? new EmbeddingService(this.settings.embeddings, this.errorHandler, this.settings.llmModel)
                                 : null;
                         if (this.embeddingService) {
                                 console.log('[ObsidianRAG] Embedding service initialized.');
@@ -467,6 +470,24 @@ this.eventsRegistered = false;
                         this.entityExtractor = useNeo4j
                                 ? new EntityExtractor(this.settings.embeddings, this.errorHandler, this.settings.neo4j.projectName)
                                 : null;
+
+                        this.metadataExtractor = new MetadataExtractor(this.app.vault, this.errorHandler);
+                        console.log('[ObsidianRAG] MetadataExtractor initialized.');
+
+                        this.graphBuilder = new GraphBuilder({
+                                metadataExtractor: this.metadataExtractor,
+                                supabaseService: this.supabaseService,
+                                neo4jService: this.neo4jService,
+                                embeddingService: this.embeddingService,
+                                errorHandler: this.errorHandler,
+                                config: {
+                                        enableAdvancedEntities: this.settings.enableAdvancedEntities,
+                                        entityTypes: this.settings.entityTypes || ['person', 'organization', 'location'],
+                                        customEntityRules: this.settings.customEntityRules || [],
+                                        maxGleaningIterations: this.settings.maxGleaningIterations ?? 2,
+                                        projectName: this.settings.vaultId || this.settings.neo4j.projectName || 'obsidian-rag',
+                                },
+                        });
 
                         const notificationManager = this.notificationManager || new NotificationManager(
                                 this.addStatusBarItem(),
@@ -485,13 +506,14 @@ this.eventsRegistered = false;
 				this.settings.chunking,
 				{
 					vectorSyncEnabled: useSupabase,
-					graphSyncEnabled: useNeo4j,
-					neo4jService: this.neo4jService,
-					entityExtractor: this.entityExtractor,
-					hybridStrategy: this.settings.sync.hybridStrategy,
-					syncMode: this.settings.sync.mode,
-				}
-			);
+                                        graphSyncEnabled: useNeo4j,
+                                        neo4jService: this.neo4jService,
+                                        entityExtractor: this.entityExtractor,
+                                        hybridStrategy: this.settings.sync.hybridStrategy,
+                                        syncMode: this.settings.sync.mode,
+                                        graphBuilder: this.graphBuilder,
+                                }
+                        );
                         await this.queueService.start();
                         console.log('[ObsidianRAG] Queue service initialized and started.');
 
@@ -505,11 +527,7 @@ this.eventsRegistered = false;
                         await this.fileTracker.initialize(this.settings, this.supabaseService, this.queueService);
                         console.log('[ObsidianRAG] FileTracker initialized.');
 
-			// Initialize MetadataExtractor
-			this.metadataExtractor = new MetadataExtractor(this.app.vault, this.errorHandler);
-			console.log('[ObsidianRAG] MetadataExtractor initialized.');
-
-			// Initialize InitialSyncManager
+                        // Initialize InitialSyncManager
 			if (!this.syncManager) {
 				throw new Error('SyncManager must be initialized before InitialSyncManager');
 			}

@@ -48,6 +48,7 @@ Obsidian-RAG/
    - **SyncDetectionManager.ts**: Waits for a quiet period after Obsidian Sync/remote changes before bootstrapping the initial sync.
    - **SyncFileManager.ts**: Creates and maintains `_obsidianragsync.md`, backs it up, and records device-level sync metadata for multi-device consistency.
    - **MetadataExtractor.ts** & **EntityExtractor.ts**: Normalize YAML/frontmatter into `DocumentMetadata`, optionally run LLM/Ollama-powered entity extraction with heuristics.
+   - **GraphBuilder.ts**: Consumes `MetadataExtractor` output to run multi-pass LLM prompts, embed entities, create Supabase `entities` rows, and upsert weighted relationships into Neo4j.
    - **EventEmitter.ts**: Lightweight pub/sub utility backing queue progress, error handling, and Mode Preview updates.
 
 4. **Observability & UX**:
@@ -74,6 +75,7 @@ Obsidian-RAG/
    - Split text into chunks (`TextSplitter`).
    - Generate embeddings (`EmbeddingService`).
    - `HybridRAGService` decides whether to run vector writes, graph writes, or both and in which order.
+   - Optional entity stage: `GraphBuilder` orchestrates iterative LLM extraction, Supabase entity embeddings, and Neo4j relationship merges when the feature flag is enabled.
    - Vector stage: Upsert to Supabase (`SupabaseService`) with per-file serialization, tag syncing, and hash comparisons.
    - Graph stage: `Neo4jService` upserts documents, chunk nodes, entities, and relationships while pruning orphaned chunks.
 4. **Offline Handling**: If connectivity fails, the `OfflineQueueManager` captures the pending operation, persists it to disk, and retries using Supabase/SyncFileManager when back online.

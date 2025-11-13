@@ -3,13 +3,23 @@ import { FileStatusRecord, DocumentMetadata, DocumentChunk } from '../models/Doc
 import { ObsidianRAGSettings, isVaultInitialized } from '../settings/Settings';
 import { Notice } from 'obsidian';
 
+export interface SupabaseEntityRecord {
+        project_name: string;
+        note_id: string;
+        name: string;
+        type?: string;
+        description?: string;
+        embedding?: number[];
+}
+
 export class SupabaseService {
 	private client: SupabaseClient | null;
 	private static instance: SupabaseService | null = null;
 	private settings: ObsidianRAGSettings;
-	private readonly TABLE_NAME = 'documents';
-private readonly FILE_STATUS_TABLE = 'obsidian_file_status';
-private readonly DEFAULT_MATCH_THRESHOLD = 0.7;
+        private readonly TABLE_NAME = 'documents';
+        private readonly FILE_STATUS_TABLE = 'obsidian_file_status';
+        private readonly DEFAULT_MATCH_THRESHOLD = 0.7;
+        private readonly ENTITY_TABLE = 'entities';
 	// Track deletion operations for a given file to avoid concurrent deletes
 	private deleteOperationsInProgress: Map<string, boolean> = new Map();
 
@@ -107,9 +117,10 @@ new Notice('Checking database connection...');
 			if (testError && !testError.message.includes('does not exist')) {
 				throw new Error(`Database connection failed: ${testError.message}`);
 			}
-			// Ensure the file status table exists
-			await this.initializeFileStatusTable();
-			new Notice('Database connection verified');
+                        // Ensure the file status and entity tables exist
+                        await this.initializeFileStatusTable();
+                        await this.initializeEntityTable();
+                        new Notice('Database connection verified');
 			this.settings.supabase.initialized = true;
 		} catch (error) {
 			console.error('Database initialization error:', error);
@@ -121,25 +132,70 @@ new Notice('Checking database connection...');
 	/**
 	 * Ensures that obsidian_file_status table exists.
 	 */
-	private async initializeFileStatusTable(): Promise<void> {
-		if (!this.client) return;
-		try {
-			// Check if file status table exists
-			const { error: checkError } = await this.client
-				.from(this.FILE_STATUS_TABLE)
-				.select('id')
-				.limit(1);
-			if (checkError && checkError.message.includes('does not exist')) {
-				console.log('File status table missing. Please create it manually or run setup SQL.');
-				new Notice('Some database tables are missing. Plugin will work with limited functionality.', 5000);
-			} else {
-				console.log('File status table exists and is accessible');
-			}
-		} catch (error) {
-			console.error('Error initializing file status table:', error);
-			throw new Error(`Failed to initialize file status table: ${(error as Error).message}`);
-		}
-	}
+        private async initializeFileStatusTable(): Promise<void> {
+                if (!this.client) return;
+                try {
+                        // Check if file status table exists
+                        const { error: checkError } = await this.client
+                                .from(this.FILE_STATUS_TABLE)
+                                .select('id')
+                                .limit(1);
+                        if (checkError && checkError.message.includes('does not exist')) {
+                                console.log('File status table missing. Please create it manually or run setup SQL.');
+                                new Notice('Some database tables are missing. Plugin will work with limited functionality.', 5000);
+                        } else {
+                                console.log('File status table exists and is accessible');
+                        }
+                } catch (error) {
+                        console.error('Error initializing file status table:', error);
+                        throw new Error(`Failed to initialize file status table: ${(error as Error).message}`);
+                }
+        }
+
+        private async initializeEntityTable(): Promise<void> {
+                if (!this.client) return;
+                try {
+                        const { error } = await this.client
+                                .from(this.ENTITY_TABLE)
+                                .select('id')
+                                .limit(1);
+                        if (error && error.message.includes('does not exist')) {
+                                await this.createEntitiesTable();
+                        }
+                } catch (error) {
+                        console.error('Error ensuring entities table:', error);
+                }
+        }
+
+        private async createEntitiesTable(): Promise<void> {
+                if (!this.client) return;
+                const ddl = `
+CREATE TABLE IF NOT EXISTS public.${this.ENTITY_TABLE} (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        project_name TEXT NOT NULL,
+        note_id TEXT,
+        name TEXT NOT NULL,
+        type TEXT,
+        description TEXT,
+        embedding VECTOR(768)
+);
+CREATE INDEX IF NOT EXISTS ${this.ENTITY_TABLE}_project_name_idx ON public.${this.ENTITY_TABLE} (project_name);
+CREATE INDEX IF NOT EXISTS ${this.ENTITY_TABLE}_embedding_idx ON public.${this.ENTITY_TABLE} USING hnsw (embedding vector_cosine_ops);
+`;
+                try {
+                        const rpc = (this.client as any).rpc?.bind(this.client);
+                        if (rpc) {
+                                const { error } = await rpc('execute_sql', { sql: ddl });
+                                if (error) {
+                                        console.warn('Failed to auto-create entities table via RPC:', error.message);
+                                }
+                        } else {
+                                console.warn('execute_sql RPC not available; please run the entities table SQL manually.');
+                        }
+                } catch (error) {
+                        console.warn('Entities table creation RPC unavailable. Please run SQL manually.', error);
+                }
+        }
 
 /**
  * Inserts or updates document chunks in the shared documents table while preserving the
@@ -1381,4 +1437,18 @@ vectorized_at: metadata.vectorized_at || new Date().toISOString(),
 created_at: row.created_at,
 updated_at: row.updated_at || metadata.updated_at,
 };
+
+        public async upsertEntityRecord(entityData: SupabaseEntityRecord): Promise<void> {
+                if (!this.client) {
+                        console.warn('Supabase client is not initialized. Skipping entity upsert.');
+                        return;
+                }
+                const { error } = await this.client
+                        .from(this.ENTITY_TABLE)
+                        .upsert(entityData, { onConflict: 'project_name,name' });
+                if (error) {
+                        throw new Error(`Entity upsert failed: ${error.message}`);
+                }
+        }
+
 }

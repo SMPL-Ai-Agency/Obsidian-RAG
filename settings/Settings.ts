@@ -1,3 +1,5 @@
+import { CustomEntityRule } from '../models/Entity';
+
 /**
  * Configuration options for chunking text
  */
@@ -218,7 +220,13 @@ export interface ObsidianRAGSettings {
 	// Initial sync settings
 	initialSync: InitialSyncSettings;
 	// New update behavior settings
-	updateBehavior: UpdateBehaviorSettings;
+        updateBehavior: UpdateBehaviorSettings;
+        // Advanced entity extraction
+        llmModel: string;
+        enableAdvancedEntities: boolean;
+        entityTypes: string[];
+        customEntityRules: CustomEntityRule[];
+        maxGleaningIterations: number;
 }
 
 /**
@@ -349,9 +357,14 @@ export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
 			{ pattern: 'archive/', priority: 1 }
 		]
 	},
-	updateBehavior: {
-		...DEFAULT_UPDATE_BEHAVIOR
-	}
+        updateBehavior: {
+                ...DEFAULT_UPDATE_BEHAVIOR
+        },
+        llmModel: 'llama3',
+        enableAdvancedEntities: false,
+        entityTypes: ['person', 'organization', 'location'],
+        customEntityRules: [],
+        maxGleaningIterations: 2,
 };
 
 /**

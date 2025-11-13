@@ -19,6 +19,7 @@ import { DEFAULT_CHUNKING_OPTIONS, DEFAULT_HYBRID_STRATEGY, HybridStrategySettin
 import { HybridRAGService } from './HybridRAGService';
 import { EventEmitter } from './EventEmitter';
 import { QueueEventTypes, QueueEventCallback } from '../models/QueueEvents';
+import { GraphBuilder } from './GraphBuilder';
 
 interface QueueIntegrationOptions {
         vectorSyncEnabled?: boolean;
@@ -27,6 +28,7 @@ interface QueueIntegrationOptions {
         entityExtractor?: EntityExtractor | null;
         hybridStrategy?: HybridStrategySettings;
         syncMode?: SyncMode;
+        graphBuilder?: GraphBuilder | null;
 }
 
 export class QueueService {
@@ -51,6 +53,7 @@ export class QueueService {
         private entityExtractor: EntityExtractor | null;
         private hybridRAGService: HybridRAGService;
         private syncMode: SyncMode;
+        private graphBuilder: GraphBuilder | null;
 
         constructor(
                 private maxConcurrent: number,
@@ -87,9 +90,14 @@ export class QueueService {
                 this.graphSyncEnabled = integrationOptions.graphSyncEnabled ?? false;
                 this.neo4jService = integrationOptions.neo4jService ?? null;
                 this.entityExtractor = integrationOptions.entityExtractor ?? null;
+                this.graphBuilder = integrationOptions.graphBuilder ?? null;
                 const strategy = integrationOptions.hybridStrategy || DEFAULT_HYBRID_STRATEGY;
                 this.hybridRAGService = new HybridRAGService(strategy);
                 this.syncMode = integrationOptions.syncMode || 'supabase';
+        }
+
+        public attachGraphBuilder(builder: GraphBuilder | null): void {
+                this.graphBuilder = builder;
         }
 
 	public start(): void {
@@ -455,12 +463,19 @@ const tasksToProcess: ProcessingTask[] = [];
 				timings.embeddingComplete = timings.chunkingComplete;
 				timings.saveComplete = timings.chunkingComplete;
 			}
-			await this.hybridRAGService.execute({
-				mode: this.syncMode,
-				vectorStage,
-				graphStage
-			});
-			this.notifyProgress(task.id, 100, 'Processing completed');
+                        await this.hybridRAGService.execute({
+                                mode: this.syncMode,
+                                vectorStage,
+                                graphStage
+                        });
+                        if (this.graphBuilder?.isEnabled()) {
+                                try {
+                                        await this.graphBuilder.processNote(content, task.metadata);
+                                } catch (error) {
+                                        this.errorHandler.handleError(error, { context: 'QueueService.graphBuilder' }, 'warn');
+                                }
+                        }
+                        this.notifyProgress(task.id, 100, 'Processing completed');
                 } catch (error) {
 			console.error('Error in processCreateUpdateTask:', { error, taskId: task.id, metadata: task.metadata });
 			throw error;
