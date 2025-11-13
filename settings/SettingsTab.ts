@@ -9,8 +9,9 @@ const CASH_APP_QR_DATA_URI =
         'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwAQAAAAAWLtQ/AAACI0lEQVR4nO2ZQY6bQBBFX7kt4SgLuEH7BjlCkxPkDDlHpDHkRrlB+xjZwTKLkZodloCfBc5k51gzUtIorhXwFvxWV/UvChO3YneTPvAD/xcYSRHAlMCNXgulGgAnKWPlOwBJauYK5rJjx1CbJGUh7W1YZjUu+UZjXy9FgtmsyULaXbg8N/PBt1DG3KS9Cc+VX9PrUv31d78amxRxqW/cYLWNQ43TWuP/XNrbsJlZM1ewx8e5TMjMLAtpN0IvkcCpCxS/H2V/5N4ISXEpUmiVvJwUTZKmUk3mC0NStBFOUgdFd7XDdRk5K78DBx0IZhW44ch8gNPFn7dQJZEihcWpO4GPFIqQfzLdg5dLdd4xHNHYn2wcalN/ZJ+DtBux9oplfAJwI0FKmDZfJXsAW4ZPH93zh25+L3ZLqXb/TPuvpd3jJRSKT04dTl0wpbC45DdeJauXUEabrjcaAZd8k3muIUkLpTQBFB1AaJU4Za78Dnw29fVXAA1HKBIyr9y9ZAcEO8AT+MYOPtpQnRfXH5kykPZ6vBbGtdFqdD2RodxEKxmAsMxmv76ogiZ6y9wF7zPJ60CFQlogtBObOLiiJLWSGqkLQNCE30Iy3YrVS9ZdkJPiryrZjkm61Nt86OsdhAX6jc+49i9Xc+U/n+jh4r81DKHbT1krX+cO14GKuISow1DbVHbttr1kbYIB+1L5xorvx+Xdj087gMy3xB5/eh74gf+AfwLsyHJA2zVb7wAAAABJRU5ErkJggg==';
 
 export class ObsidianRAGSettingsTab extends PluginSettingTab {
-	plugin: ObsidianRAGPlugin;
-	settings: ObsidianRAGSettings;
+        plugin: ObsidianRAGPlugin;
+        settings: ObsidianRAGSettings;
+        private noticeDebounceTimers = new Map<string, number>();
 
 	constructor(app: App, plugin: ObsidianRAGPlugin) {
 		super(app, plugin);
@@ -88,13 +89,13 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 			.setDesc('The URL of your Supabase project (e.g., https://your-project.supabase.co).')
 			.addText(text =>
 				text.setPlaceholder('https://your-project.supabase.co')
-					.setValue(this.settings.supabase.url)
-					.onChange(async (value) => {
-						this.settings.supabase.url = value;
-						await this.plugin.saveSettings();
-						new Notice('Supabase URL updated.');
-					})
-			);
+                                        .setValue(this.settings.supabase.url)
+                                        .onChange(async (value) => {
+                                                this.settings.supabase.url = value;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('supabase-url', 'Supabase URL updated.');
+                                        })
+                        );
                 new Setting(containerEl)
                         .setName('Supabase API Key')
                         .setDesc('Your Supabase API key (found in your Supabase dashboard).')
@@ -104,7 +105,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async (value) => {
                                                 this.settings.supabase.apiKey = value;
                                                 await this.plugin.saveSettings();
-                                                new Notice('Supabase API key updated.');
+                                                this.scheduleSettingNotice('supabase-api-key', 'Supabase API key updated.');
                                         })
                         );
 
@@ -197,7 +198,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async value => {
                                                 this.settings.neo4j.url = value;
                                                 await this.plugin.saveSettings();
-                                                new Notice('Neo4j URL updated.');
+                                                this.scheduleSettingNotice('neo4j-url', 'Neo4j URL updated.');
                                         })
                         );
                 new Setting(containerEl)
@@ -209,7 +210,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async value => {
                                                 this.settings.neo4j.username = value;
                                                 await this.plugin.saveSettings();
-                                                new Notice('Neo4j username updated.');
+                                                this.scheduleSettingNotice('neo4j-username', 'Neo4j username updated.');
                                         })
                         );
                 new Setting(containerEl)
@@ -222,7 +223,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async value => {
                                                 this.settings.neo4j.password = value;
                                                 await this.plugin.saveSettings();
-                                                new Notice('Neo4j password updated.');
+                                                this.scheduleSettingNotice('neo4j-password', 'Neo4j password updated.');
                                         });
                                 control.inputEl.type = 'password';
                                 return control;
@@ -236,7 +237,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async value => {
                                                 this.settings.neo4j.database = value;
                                                 await this.plugin.saveSettings();
-                                                new Notice('Neo4j database updated.');
+                                                this.scheduleSettingNotice('neo4j-database', 'Neo4j database updated.');
                                         })
                         );
                 new Setting(containerEl)
@@ -248,7 +249,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async value => {
                                                 this.settings.neo4j.projectName = value;
                                                 await this.plugin.saveSettings();
-                                                new Notice('Neo4j project name updated.');
+                                                this.scheduleSettingNotice('neo4j-project', 'Neo4j project name updated.');
                                         })
                         );
 
@@ -279,7 +280,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async (value) => {
                                                 this.settings.embeddings.ollama.url = value.trim();
                                                 await this.plugin.saveSettings();
-                                                new Notice('Ollama URL updated.');
+                                                this.scheduleSettingNotice('ollama-url', 'Ollama URL updated.');
                                         });
                                 control.setDisabled(!this.settings.embeddings.ollama.enabled);
                                 return control;
@@ -295,7 +296,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         .onChange(async (value) => {
                                                 this.settings.embeddings.ollama.model = value.trim();
                                                 await this.plugin.saveSettings();
-                                                new Notice('Ollama model updated.');
+                                                this.scheduleSettingNotice('ollama-model', 'Ollama model updated.');
                                         });
                                 control.setDisabled(!this.settings.embeddings.ollama.enabled);
                                 return control;
@@ -328,7 +329,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                                         this.settings.openai = { ...this.settings.embeddings.openai };
                                                 }
                                                 await this.plugin.saveSettings();
-                                                new Notice('OpenAI API key updated.');
+                                                this.scheduleSettingNotice('openai-api-key', 'OpenAI API key updated.');
                                         })
                         );
 
@@ -342,12 +343,12 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						const numValue = Number(value);
 						if (!isNaN(numValue) && numValue > 0) {
-							this.settings.chunking.chunkSize = numValue;
-							await this.plugin.saveSettings();
-							new Notice('Chunk size updated.');
-						}
-					})
-			);
+                                                        this.settings.chunking.chunkSize = numValue;
+                                                        await this.plugin.saveSettings();
+                                                        this.scheduleSettingNotice('chunk-size', 'Chunk size updated.');
+                                                }
+                                        })
+                        );
 		new Setting(containerEl)
 			.setName('Chunk Overlap')
 			.setDesc('Overlap between text chunks (in characters).')
@@ -356,12 +357,12 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						const numValue = Number(value);
 						if (!isNaN(numValue) && numValue >= 0) {
-							this.settings.chunking.chunkOverlap = numValue;
-							await this.plugin.saveSettings();
-							new Notice('Chunk overlap updated.');
-						}
-					})
-			);
+                                                        this.settings.chunking.chunkOverlap = numValue;
+                                                        await this.plugin.saveSettings();
+                                                        this.scheduleSettingNotice('chunk-overlap', 'Chunk overlap updated.');
+                                                }
+                                        })
+                        );
 
 		// Exclusion Settings Section - Only showing user-defined exclusions
 		containerEl.createEl('h2', { text: 'Exclusions' });
@@ -413,12 +414,12 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 						// Save only user-defined folders, ensuring we don't duplicate system folders
 						const userFolders = value.split(',').map(s => s.trim()).filter(s => s);
 						const finalFolders = userFolders.filter(folder => !systemFolders.has(folder));
-						console.log("DEBUG - Final folders to save:", finalFolders);
-						this.settings.exclusions.excludedFolders = finalFolders;
-						await this.plugin.saveSettings();
-						new Notice('Excluded folders updated.');
-					});
-			});
+                                                console.log("DEBUG - Final folders to save:", finalFolders);
+                                                this.settings.exclusions.excludedFolders = finalFolders;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('excluded-folders', 'Excluded folders updated.');
+                                        });
+                        });
 
 		new Setting(containerEl)
 			.setName('Excluded File Types')
@@ -430,12 +431,12 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 					.setValue(value)
 					.onChange(async (value) => {
 						const userFileTypes = value.split(',').map(s => s.trim()).filter(s => s);
-						const finalFileTypes = userFileTypes.filter(type => !systemFileTypes.has(type));
-						this.settings.exclusions.excludedFileTypes = finalFileTypes;
-						await this.plugin.saveSettings();
-						new Notice('Excluded file types updated.');
-					});
-			});
+                                                const finalFileTypes = userFileTypes.filter(type => !systemFileTypes.has(type));
+                                                this.settings.exclusions.excludedFileTypes = finalFileTypes;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('excluded-file-types', 'Excluded file types updated.');
+                                        });
+                        });
 
 		new Setting(containerEl)
 			.setName('Excluded File Prefixes')
@@ -449,13 +450,13 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 						console.log("DEBUG - File prefixes onChange event value:", value);
 						// Save only user-defined prefixes, ensuring we don't duplicate system prefixes
 						const userFilePrefixes = value.split(',').map(s => s.trim()).filter(s => s);
-						const finalFilePrefixes = userFilePrefixes.filter(prefix => !systemFilePrefixes.has(prefix));
-						console.log("DEBUG - Final file prefixes to save:", finalFilePrefixes);
-						this.settings.exclusions.excludedFilePrefixes = finalFilePrefixes;
-						await this.plugin.saveSettings();
-						new Notice('Excluded file prefixes updated.');
-					});
-			});
+                                                const finalFilePrefixes = userFilePrefixes.filter(prefix => !systemFilePrefixes.has(prefix));
+                                                console.log("DEBUG - Final file prefixes to save:", finalFilePrefixes);
+                                                this.settings.exclusions.excludedFilePrefixes = finalFilePrefixes;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('excluded-prefixes', 'Excluded file prefixes updated.');
+                                        });
+                        });
 
 		new Setting(containerEl)
 			.setName('Excluded Files')
@@ -469,13 +470,13 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 						console.log("DEBUG - Files onChange event value:", value);
 						// Save only user-defined files, ensuring we don't duplicate system files
 						const userFiles = value.split(',').map(s => s.trim()).filter(s => s);
-						const finalFiles = userFiles.filter(file => !systemFiles.has(file));
-						console.log("DEBUG - Final files to save:", finalFiles);
-						this.settings.exclusions.excludedFiles = finalFiles;
-						await this.plugin.saveSettings();
-						new Notice('Excluded files updated.');
-					});
-			});
+                                                const finalFiles = userFiles.filter(file => !systemFiles.has(file));
+                                                console.log("DEBUG - Final files to save:", finalFiles);
+                                                this.settings.exclusions.excludedFiles = finalFiles;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('excluded-files', 'Excluded files updated.');
+                                        });
+                        });
 
 		// Improved info text about system defaults
 		const infoDiv = containerEl.createEl('div', { cls: 'setting-item-description' });
@@ -515,12 +516,12 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 						if (oldSyncFileIndex !== -1) systemFiles.splice(oldSyncFileIndex, 1);
 						if (oldSyncBackupIndex !== -1) systemFiles.splice(oldSyncBackupIndex, 1);
 						// Add new sync file references
-						systemFiles.push(value);
-						systemFiles.push(value + '.backup');
-						await this.plugin.saveSettings();
-						new Notice('Sync file path updated.');
-					})
-			);
+                                                systemFiles.push(value);
+                                                systemFiles.push(value + '.backup');
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('sync-file-path', 'Sync file path updated.');
+                                        })
+                        );
 
 		// Debug Settings Section
 		containerEl.createEl('h2', { text: 'Debug Settings' });
@@ -663,20 +664,32 @@ supportText.createEl('p', { text: 'Cash App: $ObsidianRAG' });
 		});
 	}
 
-		private showConfirmation(options: ConfirmationModalOptions): Promise<boolean> {
-		const modal = new ConfirmationModal(this.app, options);
-		return modal.openAndWait();
-		}
+        private showConfirmation(options: ConfirmationModalOptions): Promise<boolean> {
+                const modal = new ConfirmationModal(this.app, options);
+                return modal.openAndWait();
+        }
 
-		private updateHybridSettingsVisibility(container: HTMLElement): void {
-		if (!container) return;
-		if (this.settings.sync.mode === 'hybrid') {
-		container.removeClass('is-hidden');
-		} else {
-		container.addClass('is-hidden');
-		}
-		}
-	}
+        private updateHybridSettingsVisibility(container: HTMLElement): void {
+                if (!container) return;
+                if (this.settings.sync.mode === 'hybrid') {
+                        container.removeClass('is-hidden');
+                } else {
+                        container.addClass('is-hidden');
+                }
+        }
+
+        private scheduleSettingNotice(key: string, message: string, delay = 1200): void {
+                const existingTimer = this.noticeDebounceTimers.get(key);
+                if (existingTimer !== undefined) {
+                        window.clearTimeout(existingTimer);
+                }
+                const timeoutId = window.setTimeout(() => {
+                        new Notice(message);
+                        this.noticeDebounceTimers.delete(key);
+                }, delay);
+                this.noticeDebounceTimers.set(key, timeoutId);
+        }
+}
 
 interface ConfirmationModalOptions {
         title: string;
