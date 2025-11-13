@@ -89,35 +89,38 @@ See [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTAL
 
 ## Project Status
 ### Completed ✅
-- Core database setup and configuration  
-- Development environment setup  
-- Basic plugin functionality  
-- File synchronization system  
-- Initial UI  
+- Core database setup and configuration
+- Development environment setup
+- Basic plugin functionality
+- File synchronization system
+- Initial UI
 
 **Database Connection & Setup**
-- Connection testing and status indicators  
-- Table and index automation  
-- Database reset and error handling  
+- Connection testing and status indicators
+- Table and index automation
+- Database reset and error handling
 
 **Core Services**
-- SupabaseService (operations)  
-- EmbeddingService (embeddings)  
-- QueueService (tasks)  
-- SyncManager (file management)  
-- EventEmitter system  
-- StatusManager (progress)  
-- SyncDetectionManager  
-- InitialSyncManager (batch processing)  
+- SupabaseService (operations)
+- EmbeddingService (embeddings)
+- QueueService (tasks)
+- SyncManager (file management)
+- EventEmitter system
+- StatusManager (progress)
+- SyncDetectionManager
+- InitialSyncManager (batch processing)
+
+**Quality & Reliability Improvements**
+- Documentation (README/INSTALL) refreshed to reflect current setup, sync, and workflow guidance.
+- Supabase delete pipeline now resolves `file_status_id` records before removing chunks to prevent ID mismatches.
+- Vault event handlers are registered once per session via an `eventsRegistered` guard to avoid duplicate listeners.
+- `TextSplitter` rebuild handles YAML metadata extraction, overlap, and abort support for consistent chunking.
+- `removeExcludedFiles` purges both file status rows and chunk records that match the configured exclusions.
+- Expanded Jest coverage exercises queue deletion retries and Supabase helpers to validate performance-related regressions.
+- MindMatrix bug review completed to ensure the upstream issues list reflects the current fixes and regressions.
 
 ### In Progress 🚧
-- Documentation updates  
-- MindMatrix bug review and fixes  
-- Fix Supabase deletion ID mismatch  
-- Prevent double event registration  
-- Repair `TextSplitter` (chunking and metadata)  
-- Stabilize `removeExcludedFiles` (cleanup)  
-- Performance optimizations and tests  
+- None — follow [TASKS.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md) for upcoming work.
 
 For task tracking and progress, see [TASKS.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md).
 
