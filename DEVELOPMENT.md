@@ -51,7 +51,7 @@ This document provides guidance for developers contributing to or extending Obsi
 
 6. **Scripts and Utilities**:
    - **Query Tables**: `scripts/query_tables.ts` is a TypeScript helper that exercises `SupabaseService`. Run it via `npx ts-node scripts/query_tables.ts` (or your preferred TS runner) after exporting the same environment variables the plugin expects. The repository does not ship with `ts-node`, so `npx` will prompt to install it if you have not already.
-   - **Release Utils**: `scripts/release-utils.sh` automates version bumps and GitHub releases (wraps `yarn build`, `yarn version`, and tagging logic).
+   - **Release Utils**: `scripts/release-utils.sh` automates version bumps and GitHub releases (wraps `yarn build`, `yarn version`, and tagging logic). The `make release-*` targets source this helper and automatically run `yarn lint`, `yarn test`, and `yarn build` before any version files are touched, so a failing check aborts the release.
    - **Makefile Targets**: `make dev` runs the esbuild watcher, `make init` installs dependencies and provisions the Supabase schema, `make setup-db` replays `sql/setup.sql`, `make test-db` validates credentials, and `make reset` re-runs the SQL migrations after a wipe. There is no `make test`; use the Yarn scripts directly for linting or Jest.
 
 ## Code Style and Conventions

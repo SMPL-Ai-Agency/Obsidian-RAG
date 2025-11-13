@@ -3,24 +3,24 @@
 
 # Development commands
 dev:
-@if ! command -v node &> /dev/null; then \
-echo "❌ Error: Node.js is not installed" && \
-echo "Please run 'make install-node' to install Node.js" && \
-exit 1; \
-fi && \
-NODE_VERSION=$$(node -v | sed 's/v//') && \
-NODE_MAJOR=$${NODE_VERSION%%.*} && \
-if [ $$NODE_MAJOR -lt 18 ]; then \
-echo "❌ Error: Node.js 18+ is required (found $$NODE_VERSION)" && \
-echo "Please upgrade Node.js before running development commands" && \
-exit 1; \
-fi && \
-if ! command -v yarn &> /dev/null; then \
-echo "❌ Error: Yarn is not installed" && \
-echo "Please run 'make install-yarn' to install Yarn" && \
-exit 1; \
-fi && \
-	yarn dev
+	@if ! command -v node &> /dev/null; then \
+		echo "❌ Error: Node.js is not installed" && \
+		echo "Please run 'make install-node' to install Node.js" && \
+		exit 1; \
+	fi && \
+	NODE_VERSION=$$(node -v | sed 's/v//') && \
+	NODE_MAJOR=$${NODE_VERSION%%.*} && \
+	if [ $$NODE_MAJOR -lt 18 ]; then \
+		echo "❌ Error: Node.js 18+ is required (found $$NODE_VERSION)" && \
+		echo "Please upgrade Node.js before running development commands" && \
+		exit 1; \
+	fi && \
+	@if ! command -v yarn &> /dev/null; then \
+		echo "❌ Error: Yarn is not installed" && \
+		echo "Please run 'make install-yarn' to install Yarn" && \
+		exit 1; \
+	fi && \
+	        yarn dev
 
 # Install Node.js
 install-node:
@@ -80,20 +80,20 @@ install-timeout:
 
 # Check environment setup
 check-env:
-@if [ ! -f .env ]; then \
-echo "📝 Creating .env file from template..." && \
-cp .env.template .env && \
-echo "✅ .env file created. Please update the values in .env" && \
-exit 0; \
-fi && \
-	export $$(grep -v '^#' .env | xargs) && \
-	if [ -z "$$SUPABASE_URL" ] || [ -z "$$SUPABASE_DB_PASSWORD" ]; then \
-		echo "❌ Error: SUPABASE_URL or SUPABASE_DB_PASSWORD not set in .env" && \
-		echo "Please update the values in .env" && \
-		exit 1; \
-	else \
-		echo "✅ Environment variables are properly set"; \
-	fi
+	@if [ ! -f .env ]; then \
+		echo "📝 Creating .env file from template..." && \
+		cp .env.template .env && \
+		echo "✅ .env file created. Please update the values in .env" && \
+		exit 0; \
+	fi && \
+	        export $$(grep -v '^#' .env | xargs) && \
+	        if [ -z "$$SUPABASE_URL" ] || [ -z "$$SUPABASE_DB_PASSWORD" ]; then \
+	                echo "❌ Error: SUPABASE_URL or SUPABASE_DB_PASSWORD not set in .env" && \
+	                echo "Please update the values in .env" && \
+	                exit 1; \
+	        else \
+	                echo "✅ Environment variables are properly set"; \
+	        fi
 
 # Setup database
 setup-db:
@@ -238,9 +238,9 @@ release-major:
 	check_clean_working_dir && \
 	check_main_branch && \
 	get_current_version && \
+	run_tests && \
 	bump_version major && \
 	generate_changelog && \
-	run_tests && \
 	create_tag && \
 	echo "✅ Major release completed successfully!"'
 
@@ -251,9 +251,9 @@ release-minor:
 	check_clean_working_dir && \
 	check_main_branch && \
 	get_current_version && \
+	run_tests && \
 	bump_version minor && \
 	generate_changelog && \
-	run_tests && \
 	create_tag && \
 	echo "✅ Minor release completed successfully!"'
 
@@ -264,8 +264,8 @@ release-patch:
 	check_clean_working_dir && \
 	check_main_branch && \
 	get_current_version && \
+	run_tests && \
 	bump_version patch && \
 	generate_changelog && \
-	run_tests && \
 	create_tag && \
-	echo "✅ Patch release completed successfully!"' 
+	echo "✅ Patch release completed successfully!"'

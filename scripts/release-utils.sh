@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -113,9 +115,25 @@ generate_changelog() {
 
 # Run tests
 run_tests() {
-    log_info "Running tests..."
-    # Add your test commands here
-    log_success "All tests passed"
+    log_info "Running lint checks (yarn lint)"
+    if ! yarn lint; then
+        log_error "Linting failed"
+        return 1
+    fi
+
+    log_info "Running unit tests (yarn test)"
+    if ! yarn test; then
+        log_error "Unit tests failed"
+        return 1
+    fi
+
+    log_info "Building production bundle (yarn build)"
+    if ! yarn build; then
+        log_error "Build failed"
+        return 1
+    fi
+
+    log_success "Lint, test, and build steps completed"
 }
 
 # Create git tag and push changes
