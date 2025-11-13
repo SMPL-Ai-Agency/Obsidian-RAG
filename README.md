@@ -34,7 +34,7 @@ These are the built-in mechanisms and core behaviors the plugin implements.
 - **Graph construction engine:** Builds Neo4j nodes and relationships for notes, tags, and entities — enabling GraphRAG-style semantic-graph queries.
 - **LLM-powered entity extraction:** Optional entity/relationship mining driven by Ollama/OpenAI prompts, complete with Supabase entity vectors and Neo4j relationship weights.
 - **Queue and task management:** Handles sync jobs, retries, and parallel processing via an internal queue.  
-- **Offline queue and reconciliation:** Stores unsent tasks locally and runs them once reconnected.  
+- **Offline queue and reconciliation:** Stores unsent tasks locally, deduplicates retries, and surfaces clear notices before rerunning them once reconnected.
 - **Configurable exclusions:** Lets you exclude folders/files (e.g., templates, private journals, daily logs).  
 - **Database setup automation:** Initializes Supabase tables, vector indexes, and Neo4j schemas automatically on first run.  
 - **Connection status and error handling:** Displays status indicators, recovers gracefully, and retries failures.  

@@ -1,4 +1,5 @@
 // src/services/OfflineQueueManager.ts
+import { randomUUID as nodeRandomUUID } from 'crypto';
 import { SupabaseService } from './SupabaseService';
 import { SyncFileManager } from './SyncFileManager';
 import { ErrorHandler } from '../utils/ErrorHandler';
@@ -66,7 +67,7 @@ export class OfflineQueueManager {
                         }
                 }
                 const op: OfflineOperation = {
-                        id: crypto.randomUUID(),
+                        id: this.generateOperationId(),
                         ...operation,
                         status: 'pending',
                         retryCount: 0
@@ -118,15 +119,16 @@ export class OfflineQueueManager {
                                 this.removeOperation(op.id);
                                 this.markOperationProcessed(op);
                         } catch (error) {
+                                const message = this.getErrorMessage(error);
                                 op.status = 'error';
-                                op.errorDetails = error.message;
+                                op.errorDetails = message;
                                 op.retryCount = (op.retryCount || 0) + 1;
                                 this.errorHandler.handleError(error, {
                                         context: 'OfflineQueueManager.processQueue',
                                         metadata: { operation: op }
                                 });
                                 // Optionally notify the user.
-                                new Notice(`Offline operation failed for file ${op.fileId}: ${error.message}`);
+                                new Notice(`Offline operation failed for file ${op.fileId}: ${message}`);
                                 if ((op.retryCount || 0) < 5) {
                                         op.status = 'pending';
                                 }
@@ -299,6 +301,33 @@ export class OfflineQueueManager {
                 if (this.reconnectionTimer !== null) {
                         clearTimeout(this.reconnectionTimer);
                         this.reconnectionTimer = null;
+                }
+        }
+
+        private generateOperationId(): string {
+                if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                        return crypto.randomUUID();
+                }
+                return nodeRandomUUID();
+        }
+
+        private getErrorMessage(error: unknown): string {
+                if (error instanceof Error && error.message) {
+                        return error.message;
+                }
+                if (typeof error === 'string') {
+                        return error;
+                }
+                if (error && typeof error === 'object' && 'message' in error) {
+                        const maybeMessage = (error as { message?: unknown }).message;
+                        if (typeof maybeMessage === 'string' && maybeMessage.length > 0) {
+                                return maybeMessage;
+                        }
+                }
+                try {
+                        return JSON.stringify(error);
+                } catch {
+                        return 'Unknown error';
                 }
         }
 }
