@@ -89,7 +89,7 @@ Before you begin, ensure you have the following installed:
 - [jq](https://stedolan.github.io/jq/) (for password encoding)
 - [coreutils](https://www.gnu.org/software/coreutils/) (for timeout command)
 
-The inspiration for this plugin came from watching Nate Herk's YouTube video [Step by Step: RAG AI Agents Got Even Better](https://youtu.be/wEXrbtqNIqI?t=323). This is great to watch to setup your Telegram Chatbot using n8n to connect to the Supabase database. I made an "Obsidian" workflow which I can plug into other n8n workflows to get information from my Obsidian vault in different scenarios. It has made retrieving knowledge from my vault so much easier and more practical in different use cases.
+The inspiration for this plugin came from watching Nate Herk's YouTube video [Step by Step: RAG AI Agents Got Even Better](https://youtu.be/wEXrbtqNIqI?t=323). This is great to watch to set up your Telegram Chatbot using n8n to connect to the Supabase database. I made an "Obsidian" workflow which I can plug into other n8n workflows to get information from my Obsidian vault in different scenarios. It has made retrieving knowledge from my vault so much easier and more practical in different use cases.
 
 ### Installation Steps
 
