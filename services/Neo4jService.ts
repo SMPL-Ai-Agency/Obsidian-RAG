@@ -16,7 +16,7 @@ export class Neo4jService {
                 this.settings = settings;
                 this.projectName = settings.projectName || 'obsidian-rag';
                 this.driver = neo4j.driver(settings.url, neo4j.auth.basic(settings.username, settings.password));
-                const normalizedBatchSize = settings.maxBatchSize ?? 500;
+                const normalizedBatchSize = settings.neo4jBatchLimit ?? settings.maxBatchSize ?? 500;
                 this.maxBatchSize = Math.min(Math.max(normalizedBatchSize, 50), 2000);
         }
 
@@ -221,9 +221,7 @@ DETACH DELETE doc`,
         ): Promise<void> {
                 const filtered = payloads.filter(payload => payload.entities.length || payload.relationships.length);
                 if (!filtered.length) return;
-                const payloadBatches = this.chunkItems(filtered);
-                for (const payloadBatch of payloadBatches) {
-                        if (!payloadBatch.length) continue;
+                await this.batchUpsert(filtered, async payloadBatch => {
                         await this.runWrite('batchUpsertAdvancedEntities', async tx => {
                                 for (const payload of payloadBatch) {
                                         await this.mergeDocumentShell(tx, payload.notePath);
@@ -235,7 +233,7 @@ DETACH DELETE doc`,
                                         }
                                 }
                         });
-                }
+                });
         }
 
         private async runWrite<T>(context: string, handler: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
@@ -302,5 +300,21 @@ SET r.keywords = rel.keywords,
                         chunks.push(items.slice(i, i + normalizedSize));
                 }
                 return chunks;
+        }
+
+        private async batchUpsert<T>(
+                items: T[],
+                handler: (batch: T[]) => Promise<void>,
+                batchSize: number = this.maxBatchSize
+        ): Promise<void> {
+                if (!Array.isArray(items) || items.length === 0) {
+                        return;
+                }
+                const normalizedSize = Math.max(1, Math.min(batchSize, this.maxBatchSize));
+                for (let i = 0; i < items.length; i += normalizedSize) {
+                        const batch = items.slice(i, i + normalizedSize);
+                        if (!batch.length) continue;
+                        await handler(batch);
+                }
         }
 }

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- _TBD_
+
+### Changed
+- _TBD_
+
+## [1.1.0-beta] - 2025-11-13
+
+### Added
 - Entity preview overlay inside the NotificationManager so advanced entity syncs can be validated without leaving Obsidian.
 - Local embedding cache in `EmbeddingService` that stores Ollama/OpenAI responses in browser storage to avoid redundant API calls.
 - Batched entity helpers in `Neo4jService` with shared `runWrite` error-wrapping to simplify future GraphRAG upserts.

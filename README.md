@@ -251,4 +251,4 @@ Licensed under the **MIT License**.
 - [Changelog](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/CHANGELOG.md)
 - [Task Tracking](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/TASKS.md)
 - [Release Artifact Checklist](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/release/RELEASE_ARTIFACTS.md)
-- [Alpha Feedback Follow-ups](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/feedback/ALPHA_FEEDBACK_ISSUES.md)
+- [Beta Feedback Tracker](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/feedback/BETA_FEEDBACK_ISSUES.md)

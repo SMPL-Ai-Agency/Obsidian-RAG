@@ -79,12 +79,13 @@ ttlHours: 24,
 };
 
 export const DEFAULT_NEO4J_SETTINGS: Neo4jSettings = {
-url: 'bolt://localhost:7687',
+        url: 'bolt://localhost:7687',
         username: 'neo4j',
         password: '',
         database: 'neo4j',
         projectName: 'obsidian-rag',
         maxBatchSize: 500,
+        neo4jBatchLimit: 500,
 };
 
 export const DEFAULT_EMBEDDING_PROVIDER_SETTINGS: EmbeddingProviderSettings = {
@@ -114,6 +115,7 @@ export interface Neo4jSettings {
         database: string;         // Target Neo4j database name
         projectName: string;      // Logical project name used to isolate nodes
         maxBatchSize?: number;    // Optional cap for batched writes to avoid OOM on large payloads
+        neo4jBatchLimit?: number; // Explicit batch slicing limit for Neo4j transactions
 }
 
 export type SyncMode = 'supabase' | 'neo4j' | 'hybrid';

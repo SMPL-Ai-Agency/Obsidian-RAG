@@ -1,0 +1,4 @@
+# Ignore generated release archives and bundles
+*.zip
+*.tar
+*.tar.gz
