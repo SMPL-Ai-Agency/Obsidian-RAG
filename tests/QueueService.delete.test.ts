@@ -7,6 +7,7 @@ import { EmbeddingService } from '../services/EmbeddingService';
 import { ErrorHandler } from '../utils/ErrorHandler';
 import { NotificationManager } from '../utils/NotificationManager';
 import { Vault } from 'obsidian';
+import { Neo4jService } from '../services/Neo4jService';
 
 describe('QueueService processDeleteTask', () => {
         const createTask = (): ProcessingTask => {
@@ -59,6 +60,28 @@ describe('QueueService processDeleteTask', () => {
                                 {} as Vault,
                                 undefined,
                                 { vectorSyncEnabled: true, graphSyncEnabled: false }
+                        ),
+                        notificationManager
+                };
+        };
+
+        const createGraphQueueService = (neo4jService: Partial<Neo4jService>) => {
+                const errorHandler = { handleError: jest.fn() } as unknown as ErrorHandler;
+                const notificationManager = {
+                        updateProgress: jest.fn(),
+                        clear: jest.fn()
+                } as unknown as NotificationManager;
+                return {
+                        queueService: new QueueService(
+                                2,
+                                3,
+                                null,
+                                null,
+                                errorHandler,
+                                notificationManager,
+                                {} as Vault,
+                                undefined,
+                                { vectorSyncEnabled: false, graphSyncEnabled: true, neo4jService: neo4jService as Neo4jService }
                         ),
                         notificationManager
                 };
@@ -128,5 +151,55 @@ describe('QueueService processDeleteTask', () => {
                 );
                 expect(supabaseService.updateFileStatusOnDelete).toHaveBeenCalledWith('Test.md');
                 jest.useRealTimers();
+        });
+
+        it('invokes Neo4j deletion and reports graph progress when graph sync is enabled', async () => {
+                const neo4jService = {
+                        deleteDocument: jest.fn().mockResolvedValue(undefined)
+                } as Partial<Neo4jService>;
+
+                const { queueService, notificationManager } = createGraphQueueService(neo4jService);
+                const task = createTask();
+
+                await (queueService as any).processDeleteTask(task);
+
+                expect(neo4jService.deleteDocument).toHaveBeenCalledWith('Test.md');
+                expect(notificationManager.updateProgress).toHaveBeenCalledWith(
+                        expect.objectContaining({
+                                taskId: task.id,
+                                progress: 60,
+                                currentStep: 'Removing graph nodes'
+                        })
+                );
+                expect(notificationManager.updateProgress).toHaveBeenCalledWith(
+                        expect.objectContaining({
+                                taskId: task.id,
+                                progress: 100,
+                                currentStep: 'Delete completed'
+                        })
+                );
+        });
+
+        it('propagates Neo4j deletion failures after notifying graph progress', async () => {
+                const neo4jService = {
+                        deleteDocument: jest.fn().mockRejectedValue(new Error('neo4j down'))
+                } as Partial<Neo4jService>;
+
+                const { queueService, notificationManager } = createGraphQueueService(neo4jService);
+                const task = createTask();
+
+                await expect((queueService as any).processDeleteTask(task)).rejects.toThrow('neo4j down');
+
+                expect(neo4jService.deleteDocument).toHaveBeenCalledWith('Test.md');
+                expect(notificationManager.updateProgress).toHaveBeenCalledWith(
+                        expect.objectContaining({
+                                taskId: task.id,
+                                progress: 60,
+                                currentStep: 'Removing graph nodes'
+                        })
+                );
+                expect(notificationManager.updateProgress).not.toHaveBeenCalledWith(
+                        expect.objectContaining({ currentStep: 'Delete completed' })
+                );
         });
 });
