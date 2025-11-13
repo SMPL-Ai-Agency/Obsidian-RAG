@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Neo4j graph sync integration with configurable `project_name` isolation plus a Hybrid mode that writes to Supabase and Neo4j in lockstep.
+- Automated multi-vault tests that verify Supabase `vault_id` separation and Neo4j `project_name` scoping.
 - Initial release of Obsidian RAG plugin
 - Database management features
   - Automated database setup
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Environment configuration
 
 ### Changed
+- Queue service now enforces mode-aware offline/online transitions (Supabase-only, Neo4j-only, and Hybrid) for improved resilience.
 - Improved error handling in database operations
 - Enhanced logging throughout the application
 - Updated documentation structure

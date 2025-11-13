@@ -8,7 +8,9 @@ It synchronizes your notes with a **Supabase vector store** and **Neo4j graph da
 
 It prioritizes **Ollama-powered embeddings** (local or cloud-hosted) for privacy and cost efficiency, with optional support for **OpenAI API** and compatible models.
 
-This enables efficient knowledge retrieval and automation across multiple vaults. Build custom integrations, automate workflows with **n8n**, and turn your Second Brain into a dynamic, searchable resource accessible through AI tools — without mixing content between projects.  
+This enables efficient knowledge retrieval and automation across multiple vaults. Build custom integrations, automate workflows with **n8n**, and turn your Second Brain into a dynamic, searchable resource accessible through AI tools — without mixing content between projects.
+
+> **Ingestion-only design:** Obsidian RAG focuses on safely ingesting and synchronizing notes into Supabase and Neo4j. You bring your own n8n workflows, chat bots, or API clients to query those stores.
 
 For example, create a **Telegram bot** that searches your vectorized notes and GraphRAG entities in Neo4j for answers.  
 An **n8n workflow** can integrate Perplexity or other search APIs to blend your personal knowledge with external data, delivering a portable, intelligent assistant.  
@@ -33,10 +35,11 @@ These are the built-in mechanisms and core behaviors the plugin implements.
 - **Configurable exclusions:** Lets you exclude folders/files (e.g., templates, private journals, daily logs).  
 - **Database setup automation:** Initializes Supabase tables, vector indexes, and Neo4j schemas automatically on first run.  
 - **Connection status and error handling:** Displays status indicators, recovers gracefully, and retries failures.  
-- **Progress tracking and notifications:** Shows in-app progress and sync alerts.  
-- **Cross-device sync management:** Uses a unified sync-state file to keep multiple devices consistent.  
-- **Extensible architecture:** Built with modular TypeScript services (`EmbeddingService`, `QueueService`, `SupabaseService`, etc.).  
-- **n8n workflow hooks:** Provides triggers/endpoints for n8n to invoke sync, query, or embedding operations.  
+- **Progress tracking and notifications:** Shows in-app progress and sync alerts.
+- **Cross-device sync management:** Uses a unified sync-state file to keep multiple devices consistent.
+- **Mode-aware synchronization:** Toggle Supabase-only (vector), Neo4j-only (graph), or Hybrid writes with automatic offline detection and recovery logic.
+- **Extensible architecture:** Built with modular TypeScript services (`EmbeddingService`, `QueueService`, `SupabaseService`, etc.).
+- **n8n workflow hooks:** Provides triggers/endpoints for n8n to invoke sync, query, or embedding operations.
 - **Developer utilities:** Helper scripts for queries, resets, and release automation.
 
 ---
@@ -55,13 +58,32 @@ Once configured, Obsidian RAG lets you automate and extend your knowledge base:
 
 ---
 
+## Sync Modes & Hybrid Workflows
+Obsidian RAG can be pointed at one or both backends depending on what you are building:
+
+- **Supabase mode (Vector):** Generates embeddings and writes to the `obsidian_documents` tables only. Ideal when you just need semantic search or when Neo4j is temporarily offline.
+- **Neo4j mode (Graph):** Skips embedding generation and only upserts entities/relationships into Neo4j using your configured `project_name` to keep vaults isolated.
+- **Hybrid mode:** Runs both stages sequentially (vector-first by default) or according to the execution order defined in **Settings → Sync → Hybrid strategy**. Writes are considered successful only when both services acknowledge them, preventing split-brain states.
+
+The queue detects offline states per mode: Supabase mode pauses when either Supabase or the embedding provider is missing, Neo4j mode only cares about the graph connection, and Hybrid requires both. Once the missing service comes back online, tasks resume automatically so every vault stays isolated and up to date.
+
+Pair Hybrid mode with n8n workflows to run **vector + graph** lookups in a single automation: query Supabase for candidate chunks, then enrich answers with graph context from Neo4j for richer assistants.
+
+---
+
 ## Installation
 See [INSTALL.md](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/blob/main/INSTALL.md) for details:
-- Setting up Supabase with SQL  
-- Configuring Ollama or OpenAI credentials  
-- Plugin installation and configuration  
-- n8n workflow examples (e.g., Telegram bot)  
-- Advanced troubleshooting  
+- Setting up Supabase with SQL
+- Configuring Ollama or OpenAI credentials
+- Plugin installation and configuration
+- n8n workflow examples (e.g., Telegram bot)
+- Advanced troubleshooting
+
+### Neo4j Setup Overview
+1. Start a Neo4j 5.x database locally (Desktop, Docker, etc.) or provision an Aura instance.
+2. Copy the **Bolt URL**, **username**, **password**, and optional database name.
+3. Pick a unique `project_name` for each vault (`Settings → Neo4j`) so graph nodes remain isolated.
+4. Paste those values into the plugin settings (or your `.env` for CLI scripts). The plugin will create the required constraints automatically during the first sync.
 
 ---
 
@@ -109,6 +131,8 @@ cd Obsidian-RAG
 yarn install
 yarn dev
 ```
+
+> **Note:** Use **Node.js 18+** (the Makefile will stop if an older runtime is detected) and copy `.env.template` to `.env` before running `make init` or any Supabase tooling so your credentials are available.
 
 ### Requirements
 - Node.js v18+

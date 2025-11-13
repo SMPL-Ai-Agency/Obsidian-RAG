@@ -65,3 +65,93 @@ describe('QueueService edge cases', () => {
                 expect(queue[0].type).toBe(TaskType.DELETE);
         });
 });
+
+describe('QueueService service availability by sync mode', () => {
+        const errorHandler = { handleError: jest.fn() } as unknown as ErrorHandler;
+        const notificationManager = { updateProgress: jest.fn(), clear: jest.fn() } as unknown as NotificationManager;
+
+        const buildService = (options: {
+                vectorSyncEnabled: boolean;
+                graphSyncEnabled: boolean;
+                supabaseService?: object | null;
+                embeddingService?: object | null;
+                neo4jService?: object | null;
+        }) =>
+                new QueueService(
+                        1,
+                        1,
+                        (options.supabaseService ?? null) as any,
+                        (options.embeddingService ?? null) as any,
+                        errorHandler,
+                        notificationManager,
+                        new Vault() as any,
+                        undefined,
+                        {
+                                vectorSyncEnabled: options.vectorSyncEnabled,
+                                graphSyncEnabled: options.graphSyncEnabled,
+                                neo4jService: (options.neo4jService ?? null) as any,
+                        }
+                );
+
+        it('requires Supabase + embeddings when running in Supabase-only mode', () => {
+                const supabaseOffline = buildService({
+                        vectorSyncEnabled: true,
+                        graphSyncEnabled: false,
+                        supabaseService: null,
+                        embeddingService: null,
+                });
+                const supabaseOnline = buildService({
+                        vectorSyncEnabled: true,
+                        graphSyncEnabled: false,
+                        supabaseService: {},
+                        embeddingService: { createEmbeddings: jest.fn() },
+                });
+
+                expect((supabaseOffline as any).areCoreServicesAvailable()).toBe(false);
+                expect((supabaseOnline as any).areCoreServicesAvailable()).toBe(true);
+        });
+
+        it('treats Neo4j-only mode as online even without Supabase services', () => {
+                const neo4jOffline = buildService({
+                        vectorSyncEnabled: false,
+                        graphSyncEnabled: true,
+                        neo4jService: null,
+                });
+                const neo4jOnline = buildService({
+                        vectorSyncEnabled: false,
+                        graphSyncEnabled: true,
+                        neo4jService: { upsertDocumentGraph: jest.fn() },
+                });
+
+                expect((neo4jOffline as any).areCoreServicesAvailable()).toBe(false);
+                expect((neo4jOnline as any).areCoreServicesAvailable()).toBe(true);
+        });
+
+        it('requires both backends when hybrid mode is enabled', () => {
+                const hybridMissingGraph = buildService({
+                        vectorSyncEnabled: true,
+                        graphSyncEnabled: true,
+                        supabaseService: {},
+                        embeddingService: { createEmbeddings: jest.fn() },
+                        neo4jService: null,
+                });
+                const hybridMissingVectors = buildService({
+                        vectorSyncEnabled: true,
+                        graphSyncEnabled: true,
+                        supabaseService: null,
+                        embeddingService: null,
+                        neo4jService: { upsertDocumentGraph: jest.fn() },
+                });
+                const hybridOnline = buildService({
+                        vectorSyncEnabled: true,
+                        graphSyncEnabled: true,
+                        supabaseService: {},
+                        embeddingService: { createEmbeddings: jest.fn() },
+                        neo4jService: { upsertDocumentGraph: jest.fn() },
+                });
+
+                expect((hybridMissingGraph as any).areCoreServicesAvailable()).toBe(false);
+                expect((hybridMissingVectors as any).areCoreServicesAvailable()).toBe(false);
+                expect((hybridOnline as any).areCoreServicesAvailable()).toBe(true);
+        });
+});

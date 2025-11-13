@@ -1,5 +1,7 @@
 # Installation Guide
 
+> Obsidian RAG is an **ingestion-first** plugin. It pushes your vault into Supabase (vectors) and Neo4j (graph) so you can query those systems from n8n, bots, or scripts you control.
+
 ## For Normal Users
 
 ### Prerequisites
@@ -9,6 +11,8 @@ Before you begin, ensure you have:
 - A [Supabase](https://supabase.com) account
 - Access to an [Ollama](https://ollama.com/) server (local or remote)
 - *(Optional)* An [OpenAI](https://platform.openai.com/) API key for fallback embeddings
+- *(Optional)* A [Neo4j 5.x](https://neo4j.com/) instance (Desktop, Docker, or Aura) if you want graph sync
+- Node.js **18 or newer** if you plan to run the Makefile or developer tooling (the repo will block older runtimes)
 
 ### Installation Steps
 
@@ -41,6 +45,15 @@ Before you begin, ensure you have:
    - Enter your Supabase credentials:
      - Project URL
      - Database Password
+   - Choose a **Sync Mode** under *Settings → Sync*:
+     - **Supabase** – vectors only
+     - **Neo4j** – graph only
+     - **Hybrid** – run both stages (default `vector-first` order)
+   - Configure Neo4j (if you enabled Graph or Hybrid modes):
+     - Bolt URL (e.g., `bolt://localhost:7687`)
+     - Username & password
+     - Database name (defaults to `neo4j`)
+     - Project name (one per vault to keep graphs isolated)
    - Configure the Embeddings section:
      - Confirm the Ollama server URL and model (defaults to `http://localhost:11434` and `nomic-embed-text`)
      - Enable or disable Ollama usage as needed
@@ -52,6 +65,13 @@ Before you begin, ensure you have:
    - Use the command palette to search your knowledge base
    - Configure exclusion patterns if needed
 
+### Choosing a Sync Mode
+- **Supabase:** Only vector data is written. Useful when you just need semantic search or when Neo4j is offline.
+- **Neo4j:** Only graph data is written. Skip the embedding cost if you only care about entities/relationships.
+- **Hybrid:** Runs both stages (vector-first by default). The queue pauses automatically if either backend is unavailable and resumes when both reconnect, keeping vaults isolated.
+
+Switch modes per vault whenever your automation needs change—Obsidian RAG records which backend received the latest successful write so n8n can decide how to query it.
+
 ## For Developers
 
 ### Prerequisites
@@ -60,6 +80,7 @@ Before you begin, ensure you have the following installed:
 - [Node.js](https://nodejs.org/) (v18 or higher)
 - [Yarn](https://yarnpkg.com/) package manager
 - [PostgreSQL](https://www.postgresql.org/) (v14 or higher)
+- *(Optional)* [Neo4j 5.x](https://neo4j.com/) if you want to test graph sync locally
 - [jq](https://stedolan.github.io/jq/) (for password encoding)
 - [coreutils](https://www.gnu.org/software/coreutils/) (for timeout command)
 
@@ -83,10 +104,19 @@ The inspiration for this plugin came from watching Nate Herk's YouTube video [St
      ```bash
      cp .env.template .env
      ```
-   - Update the `.env` file with your Supabase credentials:
+   - Update the `.env` file with your Supabase, Neo4j, and embedding settings:
      ```
      SUPABASE_URL=https://your-project-ref.supabase.co
      SUPABASE_DB_PASSWORD=your-database-password
+     SYNC_MODE=hybrid   # supabase | neo4j | hybrid
+     NEO4J_URL=bolt://localhost:7687
+     NEO4J_USERNAME=neo4j
+     NEO4J_PASSWORD=your-neo4j-password
+     NEO4J_DATABASE=neo4j
+     NEO4J_PROJECT_NAME=obsidian-rag
+     OLLAMA_URL=http://localhost:11434
+     OLLAMA_MODEL=nomic-embed-text
+     OPENAI_API_KEY=optional-openai-key
      ```
 
 4. **Initialize the project**
