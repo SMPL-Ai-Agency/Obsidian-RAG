@@ -1,7 +1,14 @@
 //SettingsTab.ts
 import { App, PluginSettingTab, Setting, Notice, Modal } from 'obsidian';
 import ObsidianRAGPlugin from '../main';
-import { ObsidianRAGSettings, generateVaultId, isVaultInitialized, getUserExclusions, SYSTEM_EXCLUSIONS } from './Settings';
+import {
+        ObsidianRAGSettings,
+        generateVaultId,
+        isVaultInitialized,
+        getUserExclusions,
+        SYSTEM_EXCLUSIONS,
+        updateSystemSyncFileExclusions
+} from './Settings';
 import { SupabaseService } from '../services/SupabaseService';
 import { describeSyncMode } from '../services/ModePreviewManager';
 import { CustomEntityRule } from '../models/Entity';
@@ -628,24 +635,29 @@ new Setting(containerEl)
                 new Setting(containerEl)
                         .setName('Sync File Path')
                         .setDesc('The path for the dedicated sync file.')
-                        .addText(text =>
+                        .addText(text => {
                                 text.setValue(this.settings.sync.syncFilePath)
-					.onChange(async (value) => {
-						this.settings.sync.syncFilePath = value;
-						// Also update the system excluded files
-						const systemFiles = this.settings.exclusions.systemExcludedFiles;
-						// Remove old sync file references
-						const oldSyncFileIndex = systemFiles.findIndex(f => f === '_obsidianragsync.md');
-						const oldSyncBackupIndex = systemFiles.findIndex(f => f === '_obsidianragsync.md.backup');
-						if (oldSyncFileIndex !== -1) systemFiles.splice(oldSyncFileIndex, 1);
-						if (oldSyncBackupIndex !== -1) systemFiles.splice(oldSyncBackupIndex, 1);
-						// Add new sync file references
-                                                systemFiles.push(value);
-                                                systemFiles.push(value + '.backup');
+                                        .onChange(async (value) => {
+                                                const normalizedValue = value.trim();
+                                                const previousPath = this.settings.sync.syncFilePath;
+                                                if (!normalizedValue) {
+                                                        text.setValue(previousPath);
+                                                        new Notice('Sync file path cannot be empty.');
+                                                        return;
+                                                }
+                                                if (normalizedValue === previousPath) {
+                                                        return;
+                                                }
+                                                this.settings.sync.syncFilePath = normalizedValue;
+                                                updateSystemSyncFileExclusions(
+                                                        this.settings.exclusions,
+                                                        normalizedValue,
+                                                        previousPath
+                                                );
                                                 await this.plugin.saveSettings();
                                                 this.scheduleSettingNotice('sync-file-path', 'Sync file path updated.');
-                                        })
-                        );
+                                        });
+                        });
 
                 // Notifications & UI Section
                 containerEl.createEl('h2', { text: 'Notifications & UI' });
