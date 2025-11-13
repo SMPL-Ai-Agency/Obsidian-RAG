@@ -171,6 +171,17 @@ yarn dev
 
 > **Note:** Use **Node.js 18+** (the Makefile will stop if an older runtime is detected) and copy `.env.template` to `.env` before running `make init` or any Supabase tooling so your credentials are available.
 
+### Testing
+
+Use the Jest scripts to validate services, queues, and offline fallbacks before packaging the plugin:
+
+```bash
+yarn test          # Runs the full Jest suite once with the repo defaults.
+yarn test:watch    # Starts Jest in watch mode for tight inner-loop work.
+```
+
+`yarn test:watch` was verified locally with `--runTestsByPath tests/QueueService.delete.test.ts`, and it immediately re-runs that suite when the files change.
+
 ### Generate API documentation
 
 Run `yarn docs` to build a TypeDoc site under `docs/api/`. Publishing those HTML files alongside releases helps downstream automations (n8n, bots, CLI tools) understand the available services without digging through the codebase.

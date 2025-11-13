@@ -67,9 +67,10 @@ Obsidian-RAG uses Jest for unit and integration tests. Most suites live in `test
 
 - **Run Tests**:
   ```
-  yarn test
+  yarn test                # Executes the complete suite once.
+  yarn test:watch          # Watch mode for quicker iteration.
   ```
-  Or watch mode: `yarn test:watch`.
+  `yarn test:watch` was verified locally with `--runTestsByPath tests/QueueService.delete.test.ts` and automatically re-ran the test file after edits, so you can pin the suites relevant to your changes while keeping watch mode responsive.
 
 - **Writing Tests**:
   - Focus on edge cases: offline syncs, retries, exclusions, Mode Preview reporting, and hybrid-mode fallbacks.
