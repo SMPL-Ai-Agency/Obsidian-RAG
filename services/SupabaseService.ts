@@ -93,14 +93,13 @@ export class SupabaseService {
 		}
 	}
 
-	/**
-	 * Inserts or updates document chunks in the obsidian_documents table using an atomic transaction.
-	 * Improvements:
-	 * - Transaction handling to ensure atomicity
-	 * - Verification of deletion success before insertion
-	 * - Proper error handling and retry logic
-	 * - Prevents concurrent deletions on the same file
-	 */
+        /**
+         * Inserts or updates document chunks in the obsidian_documents table using an atomic transaction.
+         * Improvements:
+         * - Relies on the database function `upsert_document_chunks` to perform delete + insert atomically
+         * - Simplifies error handling because PostgreSQL rolls back the entire operation on failure
+         * - Prevents concurrent operations on the same file to avoid racing RPC calls
+         */
 	public async upsertChunks(chunks: DocumentChunk[]): Promise<void> {
 		if (!this.client) {
 			console.warn('Supabase client is not initialized. Skipping upsertChunks.');
@@ -146,10 +145,10 @@ export class SupabaseService {
                                 content_hash: (chunks[0].metadata.customMetadata?.contentHash as string) || '',
                                 status: 'pending',
                                 tags: chunks[0].metadata.tags || [],
-                                aliases: (chunks[0].metadata.customMetadata?.aliases as string[]) || [],
+                                aliases: chunks[0].metadata.aliases || [],
                                 links: chunks[0].metadata.links || [],
                                 updated_at: new Date().toISOString()
-			};
+                        };
 
 			// Upsert the file status record
 			const { data: fileStatusData, error: fileStatusError } = await this.client
@@ -181,123 +180,40 @@ export class SupabaseService {
 				updated_at: new Date().toISOString()
 			}));
 
-			// Record original number of chunks for verification
-			const chunkCount = chunksToInsert.length;
-			console.log(`Preparing to update ${chunkCount} chunks for file: ${obsidianId}`);
+                        const chunkCount = chunksToInsert.length;
+                        console.log(`Preparing to update ${chunkCount} chunks for file: ${obsidianId}`);
 
-			// Execute delete and insert operations in a transaction-like manner
-			// First delete existing chunks for this file using file_status_id
-			const { error: deleteError } = await this.client
-				.from(this.TABLE_NAME)
-				.delete()
-				.eq('vault_id', this.settings.vaultId)
-				.eq('file_status_id', fileStatusId);
+                        const chunkPayload = chunksToInsert.map(chunk => ({
+                                chunk_index: chunk.chunk_index,
+                                content: chunk.content,
+                                metadata: chunk.metadata,
+                                embedding: chunk.embedding,
+                                vectorized_at: chunk.vectorized_at,
+                                updated_at: chunk.updated_at
+                        }));
 
-			if (deleteError) {
-				console.error('Error deleting existing chunks:', deleteError);
-				throw deleteError;
-			}
+                        const { error: upsertError } = await this.client.rpc('upsert_document_chunks', {
+                                p_vault_id: this.settings.vaultId,
+                                p_file_status_id: fileStatusId,
+                                p_chunks: chunkPayload
+                        });
 
-			// Verify there are no remaining chunks (double-check deletion)
-			const { data: remainingData, error: countError } = await this.client
-				.from(this.TABLE_NAME)
-				.select('id')
-				.eq('vault_id', this.settings.vaultId)
-				.eq('file_status_id', fileStatusId);
+                        if (upsertError) {
+                                console.error('Atomic chunk upsert failed:', upsertError);
+                                throw upsertError;
+                        }
 
-			if (countError) {
-				console.error('Error verifying deletion:', countError);
-				throw countError;
-			}
-
-			const remainingCount = remainingData?.length || 0;
-			if (remainingCount > 0) {
-				console.warn(`Deletion verification failed: ${remainingCount} chunks still exist for ${obsidianId}`);
-				// Attempt deletion again if chunks remain
-				const { error: retryError } = await this.client
-					.from(this.TABLE_NAME)
-					.delete()
-					.eq('vault_id', this.settings.vaultId)
-					.eq('file_status_id', fileStatusId);
-				if (retryError) {
-					throw new Error(`Failed to clean up remaining chunks: ${retryError.message}`);
-				}
-			}
-
-			// Now insert the new chunks in batches to avoid potential payload limits
-			const BATCH_SIZE = 50;
-			const batches = [];
-
-			for (let i = 0; i < chunksToInsert.length; i += BATCH_SIZE) {
-				batches.push(chunksToInsert.slice(i, i + BATCH_SIZE));
-			}
-			console.log(`Inserting ${chunksToInsert.length} chunks in ${batches.length} batches`);
-
-			for (let i = 0; i < batches.length; i++) {
-				const batch = batches[i];
-				console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} chunks`);
-				const { error: insertError } = await this.client
-					.from(this.TABLE_NAME)
-					.insert(batch);
-				if (insertError) {
-					console.error(`Error inserting batch ${i + 1}:`, insertError);
-					// Clean up partially inserted data on error
-					await this.cleanupPartialInsert(fileStatusId);
-					throw insertError;
-				}
-			}
-
-			// Verify all chunks were inserted
-			const { data: insertedData, error: verifyError } = await this.client
-				.from(this.TABLE_NAME)
-				.select('id')
-				.eq('vault_id', this.settings.vaultId)
-				.eq('file_status_id', fileStatusId);
-
-			if (verifyError) {
-				console.error('Error verifying insertion:', verifyError);
-				throw verifyError;
-			}
-
-			const insertedCount = insertedData?.length || 0;
-			if (insertedCount !== chunkCount) {
-				console.warn(`Insertion verification: Expected ${chunkCount} chunks, found ${insertedCount}`);
-			}
-
-			console.log('Successfully updated chunks:', {
-				numberOfChunks: chunks.length,
-				vaultId: this.settings.vaultId,
-				obsidianId
-			});
-		} catch (error) {
-			console.error('Failed to upsert chunks:', error);
-			throw error;
-		} finally {
+                        console.log('Successfully updated chunks via transaction:', {
+                                numberOfChunks: chunkCount,
+                                vaultId: this.settings.vaultId,
+                                obsidianId
+                        });
+                } catch (error) {
+                        console.error('Failed to upsert chunks:', error);
+                        throw error;
+                } finally {
 			// Clear deletion in progress flag
 			this.deleteOperationsInProgress.set(obsidianId, false);
-		}
-	}
-
-	/**
-	 * Cleans up partial inserts if an error occurs during batch insertion
-	 */
-	private async cleanupPartialInsert(fileStatusId: number): Promise<void> {
-		if (!this.client) return;
-
-		try {
-			console.log(`Cleaning up partial insert for file status ID ${fileStatusId}`);
-			const { error } = await this.client
-				.from(this.TABLE_NAME)
-				.delete()
-				.eq('vault_id', this.settings.vaultId)
-				.eq('file_status_id', fileStatusId);
-			if (error) {
-				console.error('Error cleaning up partial insert:', error);
-			} else {
-				console.log(`Successfully cleaned up partial insert for file status ID ${fileStatusId}`);
-			}
-		} catch (error) {
-			console.error('Error in cleanupPartialInsert:', error);
 		}
 	}
 
@@ -358,7 +274,7 @@ export class SupabaseService {
                                 content_hash: (metadata.customMetadata?.contentHash as string) || '',
                                 status,
                                 tags: metadata.tags || [],
-                                aliases: (metadata.customMetadata?.aliases as string[]) || [],
+                                aliases: metadata.aliases || [],
                                 links: metadata.links || [],
                                 updated_at: new Date().toISOString()
                         };

@@ -197,10 +197,13 @@ export class FileTracker {
 		this.pendingChanges = [];
 	}
 
-	/**
-	 * Reconcile database records with local sync file entries.
-	 * Ensures that each file in the vault has an up-to-date status in the database.
-	 */
+        /**
+         * Reconcile database records with local sync file entries.
+         * Ensures that each file in the vault has an up-to-date status in the database.
+         * When a change is detected the Supabase record is explicitly marked as `pending`
+         * so downstream processors (QueueService) know to re-vectorize the file before
+         * eventually transitioning it back to `vectorized`.
+         */
 	private async reconcileDatabaseWithSyncFile(): Promise<void> {
 		try {
 			if (!this.supabaseService) return;
@@ -216,20 +219,20 @@ export class FileTracker {
 					// Get file status from the database
 					const dbStatus = await this.supabaseService.getFileVectorizationStatus(file.path);
 					const currentHash = await this.calculateFileHash(file);
-					// If the file is marked as vectorized but the file has changed, update status to PENDING
-					if (dbStatus.isVectorized) {
-						const fileModifiedSinceDb = file.stat.mtime > (dbStatus.lastModified || 0);
-						if (fileModifiedSinceDb) {
-							const metadata = await this.createFileMetadata(file);
-							await this.supabaseService.updateFileVectorizationStatus(metadata);
-							console.log(`Database record updated to PENDING for modified file: ${file.path}`);
-						}
-					} else {
-						// No valid record or not vectorized yet—create or update it in the database
-						const metadata = await this.createFileMetadata(file);
-						await this.supabaseService.updateFileVectorizationStatus(metadata);
-						console.log(`Database record created/updated for file: ${file.path}`);
-					}
+                                        // If the file is marked as vectorized but the file has changed, update status to PENDING
+                                        if (dbStatus.isVectorized) {
+                                                const fileModifiedSinceDb = file.stat.mtime > (dbStatus.lastModified || 0);
+                                                if (fileModifiedSinceDb) {
+                                                        const metadata = await this.createFileMetadata(file);
+                                                        await this.supabaseService.updateFileVectorizationStatus(metadata, 'pending');
+                                                        console.log(`Database record updated to PENDING for modified file: ${file.path}`);
+                                                }
+                                        } else {
+                                                // No valid record or not vectorized yet—create or update it in the database
+                                                const metadata = await this.createFileMetadata(file);
+                                                await this.supabaseService.updateFileVectorizationStatus(metadata, 'pending');
+                                                console.log(`Database record created/updated for file: ${file.path}`);
+                                        }
 				} catch (error) {
 					this.errorHandler.handleError(error, {
 						context: 'FileTracker.reconcileDatabaseWithSyncFile',
@@ -415,9 +418,9 @@ export class FileTracker {
 				metadata.lastModified,
 				fileHash,
 				'vectorized',
-				metadata.tags || [],
-				(metadata.customMetadata?.aliases as string[]) || [],
-				metadata.links || []
+                                metadata.tags || [],
+                                metadata.aliases || [],
+                                metadata.links || []
 			);
 
 			if (!fileStatus) {
@@ -683,18 +686,19 @@ export class FileTracker {
 				lastProcessed: Date.now()
 			});
 
-			if (needsVectorizing) {
-				console.log(`Updating status for ${path} with hash ${newHash.substring(0, 8)}...`);
-				const metadata = await this.createFileMetadata(file);
-				if (metadata.customMetadata) {
-					metadata.customMetadata.contentHash = newHash;
-				}
-				await this.supabaseService.updateFileVectorizationStatus(metadata);
-			}
-		} catch (error) {
-			console.error(`[ObsidianRAG] Error processing file events for ${path}:`, error);
-		}
-	}
+                        if (needsVectorizing) {
+                                console.log(`Updating status for ${path} with hash ${newHash.substring(0, 8)}...`);
+                                const metadata = await this.createFileMetadata(file);
+                                if (metadata.customMetadata) {
+                                        metadata.customMetadata.contentHash = newHash;
+                                }
+                                // Mark the file as pending so downstream processors know to re-vectorize it
+                                await this.supabaseService.updateFileVectorizationStatus(metadata, 'pending');
+                        }
+                } catch (error) {
+                        console.error(`[ObsidianRAG] Error processing file events for ${path}:`, error);
+                }
+        }
 
 	private async calculateFileHash(file: TFile): Promise<string> {
 		try {

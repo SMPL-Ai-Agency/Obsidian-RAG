@@ -28,11 +28,10 @@ export class MetadataExtractor {
 		};
 
 		// Extract optional aliases from frontmatter
-		const aliases = this.extractAliases(frontMatter);
-		if (aliases.length > 0) {
-			metadata.customMetadata = metadata.customMetadata || {};
-			metadata.customMetadata.aliases = aliases;
-		}
+                const aliases = this.extractAliases(frontMatter);
+                if (aliases.length > 0) {
+                        metadata.aliases = aliases;
+                }
 
 		// Extract source location if available
 		const loc = this.extractSourceLocation(frontMatter);
@@ -73,16 +72,14 @@ export class MetadataExtractor {
                                         merged.tags = normalizedTags;
                                 }
 			}
-			// Merge aliases into customMetadata
-			if (frontMatter.aliases) {
-				merged.customMetadata = merged.customMetadata || {};
-				merged.customMetadata.aliases = Array.isArray(frontMatter.aliases)
-					? frontMatter.aliases
-					: [frontMatter.aliases];
-			}
-		}
-		return merged;
-	}
+                        // Merge aliases directly into the DocumentMetadata alias field
+                        const aliases = this.extractAliases(frontMatter);
+                        if (aliases.length > 0) {
+                                merged.aliases = aliases;
+                        }
+                }
+                return merged;
+        }
 
 	/**
 	 * Extracts YAML front matter from document content
