@@ -26,7 +26,7 @@ Before you begin, ensure you have:
    - Click Install and Enable
 
    #### Method 2: Manual Installation
-   - Download the latest release from [GitHub Releases](https://github.com/smpl-ai-automations/obsidian-rag/releases)
+   - Download the latest release from [GitHub Releases](https://github.com/SMPL-Ai-Agency/Obsidian-RAG/releases)
    - Extract the files to your vault's plugins directory:
      ```
      .obsidian/plugins/obsidian-rag/
@@ -97,7 +97,7 @@ The inspiration for this plugin came from watching Nate Herk's YouTube video [St
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/smpl-ai-automations/obsidian-rag.git
+   git clone https://github.com/SMPL-Ai-Agency/Obsidian-RAG.git
    cd obsidian-rag
    ```
 
