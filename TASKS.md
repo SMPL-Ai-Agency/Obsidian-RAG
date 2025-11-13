@@ -30,5 +30,14 @@
 - [x] **Import the correct event type when updating exclusion settings**
   - `SyncFileManager.updateSyncFileForExclusions` constructs a `ConnectionEvent` but never imports it, yielding `TS2304`. Bring the type into the module (and expand the union to include `exclusion_update` if needed). 【F:services/SyncFileManager.ts†L780-L812】【4ea4cb†L52-L68】
 
+- [ ] **Restore Jest by upgrading the TypeScript toolchain**
+  - `yarn test` dies before executing any suites because the vendored `node_modules/typescript` is still 4.7.4, which does not understand the `DOM`/`ES2022`/`ESNext.AsyncIterable`/`esnext.disposable` lib combination declared in `tsconfig.json`. Update the installed TypeScript version (and lockfile) to ≥5.5, or adjust the config so ts-jest can compile and the suites run again. 【F:node_modules/typescript/package.json†L1-L6】【F:tsconfig.json†L1-L24】【00891d†L1-L66】
+
+- [ ] **Install missing `@eslint/js` so `yarn lint` works**
+  - `eslint.config.mjs` imports `@eslint/js`, but the package is absent from `node_modules`, so `yarn lint` fails with `ERR_MODULE_NOT_FOUND`. Ensure the dependency is actually installed (and committed in the vendored `node_modules` if that pattern is kept) so the lint script defined in `package.json` can run. 【F:package.json†L6-L42】【34f268†L1-L13】
+
+- [ ] **Debounce settings notices to avoid UI spam**
+  - Every text field in `SettingsTab` fires `new Notice(...)` on each `onChange` keystroke (Supabase URL/API key, sync mode dropdown, etc.), which results in rapid toast spam while typing. Persist values silently (or debounce until blur/submit) so users can edit fields without dozens of notifications. 【F:settings/SettingsTab.ts†L84-L130】
+
 ## Important Note
 All implementation tasks must strictly follow the architecture design described in AGENTS.md
