@@ -1,0 +1,15 @@
+{
+  "entryPoints": [
+    "main.ts",
+    "services",
+    "models",
+    "settings",
+    "utils"
+  ],
+  "out": "docs/api",
+  "tsconfig": "tsconfig.json",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": false,
+  "name": "Obsidian RAG API"
+}

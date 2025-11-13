@@ -254,6 +254,20 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                                 this.scheduleSettingNotice('neo4j-project', 'Neo4j project name updated.');
                                         })
                         );
+                new Setting(containerEl)
+                        .setName('Graph batch size limit')
+                        .setDesc('Caps how many chunks/entities are sent per Neo4j query to avoid Aura timeouts or memory spikes.')
+                        .addSlider(slider =>
+                                slider
+                                        .setLimits(50, 1000, 50)
+                                        .setValue(this.settings.neo4j.maxBatchSize ?? 500)
+                                        .setDynamicTooltip()
+                                        .onChange(async value => {
+                                                this.settings.neo4j.maxBatchSize = value;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('neo4j-batch-size', `Neo4j batch size set to ${value}.`);
+                                        })
+                        );
 
                 // Embedding Provider Settings Section
                 containerEl.createEl('h2', { text: 'Embeddings' });

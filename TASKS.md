@@ -41,3 +41,12 @@
 
 ## Important Note
 All implementation tasks must strictly follow the architecture design described in AGENTS.md
+
+## Community Issue Cross-References
+
+| Task | GitHub Issue | Notes |
+| ---- | ------------ | ----- |
+| Neo4j batch limits & hybrid sync hardening | (link when created) | Use this row when opening a public issue so contributors can coordinate fixes. |
+| Release automation polish | (link when created) | Tie GitHub issue IDs back to this table whenever CHANGELOG/manifest work is planned. |
+
+> Keep this table updated as community GitHub issues are opened. Mirroring IDs here lets vault owners discover active discussions without leaving Obsidian.

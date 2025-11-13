@@ -13,12 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batched entity helpers in `Neo4jService` with shared `runWrite` error-wrapping to simplify future GraphRAG upserts.
 - Embedding cache TTL controls in the settings tab so each vault can tune how long vectors are reused before regeneration.
 - Status-bar entity overlay actions that open the originating note directly from the preview.
+- Configurable Neo4j batch size slider plus server-side chunking safeguards so giant entity or chunk payloads do not overwhelm Aura/Neo4j instances.
+- Hybrid-mode integration test that validates entity extraction + embedding cache hits, ensuring end-to-end coverage for the ingestion pipeline.
+- `sql/migrations/` directory with the first idempotent migration and documentation describing how to evolve Supabase schemas safely.
+- TypeDoc configuration and `yarn docs` helper for generating API documentation straight from the TypeScript sources.
+- Release checklist (see `release/RELEASE_ARTIFACTS.md`) outlining manifest bumps, build steps, and tagging requirements ahead of GitHub releases.
+- Example n8n workflow scaffolding to jumpstart cache export automations.
 
 ### Changed
 - Updated README.md and INSTALL.md to clarify the ingestion-only workflow, document the available command palette controls, and replace broken documentation links.
 - Filtered GraphBuilder relationship parsing to drop low-confidence edges and improved Jest coverage around malformed LLM responses.
 - Pinned `ts-jest` to `29.2.5` to prevent future regressions from tooling churn.
 - NotificationManager now receives the Obsidian `App` reference so it can open notes safely without relying on global helpers.
+- Neo4j upserts now respect server-friendly batch limits (default 500) and the new Jest suite enforces that limit going forward.
 
 ## [1.1.0-alpha] - 2025-11-13
 

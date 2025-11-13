@@ -84,6 +84,7 @@ url: 'bolt://localhost:7687',
         password: '',
         database: 'neo4j',
         projectName: 'obsidian-rag',
+        maxBatchSize: 500,
 };
 
 export const DEFAULT_EMBEDDING_PROVIDER_SETTINGS: EmbeddingProviderSettings = {
@@ -112,6 +113,7 @@ export interface Neo4jSettings {
         password: string;         // Password for Neo4j authentication
         database: string;         // Target Neo4j database name
         projectName: string;      // Logical project name used to isolate nodes
+        maxBatchSize?: number;    // Optional cap for batched writes to avoid OOM on large payloads
 }
 
 export type SyncMode = 'supabase' | 'neo4j' | 'hybrid';

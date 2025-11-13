@@ -10,11 +10,14 @@ export class Neo4jService {
         private driver: Driver;
         private projectName: string;
         private settings: Neo4jSettings;
+        private readonly maxBatchSize: number;
 
         private constructor(settings: Neo4jSettings) {
                 this.settings = settings;
                 this.projectName = settings.projectName || 'obsidian-rag';
                 this.driver = neo4j.driver(settings.url, neo4j.auth.basic(settings.username, settings.password));
+                const normalizedBatchSize = settings.maxBatchSize ?? 500;
+                this.maxBatchSize = Math.min(Math.max(normalizedBatchSize, 50), 2000);
         }
 
         public static async getInstance(settings: ObsidianRAGSettings): Promise<Neo4jService | null> {
@@ -95,7 +98,8 @@ SET doc += {
 }`,
                                         documentProperties
                                 );
-                                if (chunkPayload.length > 0) {
+                                for (const chunkBatch of this.chunkItems(chunkPayload)) {
+                                        if (!chunkBatch.length) continue;
                                         await tx.run(
                                                 `MATCH (doc:Document {project_name: $projectName, path: $path})
 WITH doc
@@ -109,7 +113,7 @@ SET c += {
 }
 MERGE (doc)-[rel:HAS_CHUNK]->(c)
 SET rel.chunk_index = chunk.chunkIndex`,
-                                                { ...documentProperties, chunks: chunkPayload }
+                                                { ...documentProperties, chunks: chunkBatch }
                                         );
                                 }
                                 await tx.run(
@@ -127,8 +131,10 @@ DETACH DELETE chunk`,
                                                 sourcePath: entity.sourcePath || metadata.path,
                                                 importance: entity.importance ?? 1,
                                         }));
-                                        await tx.run(
-                                                `UNWIND $entities AS entity
+                                        for (const entityBatch of this.chunkItems(entities)) {
+                                                if (!entityBatch.length) continue;
+                                                await tx.run(
+                                                        `UNWIND $entities AS entity
 MERGE (e:Entity {project_name: $projectName, entity_id: entity.id})
 SET e += {
         name: entity.name,
@@ -138,17 +144,18 @@ SET e += {
         importance: entity.importance,
         updated_at: datetime()
 }`,
-                                                { projectName: this.projectName, entities }
-                                        );
-                                        await tx.run(
-                                                `MATCH (doc:Document {project_name: $projectName, path: $path})
+                                                        { projectName: this.projectName, entities: entityBatch }
+                                                );
+                                                await tx.run(
+                                                        `MATCH (doc:Document {project_name: $projectName, path: $path})
 WITH doc
 UNWIND $entities AS entity
 MATCH (e:Entity {project_name: $projectName, entity_id: entity.id})
 MERGE (doc)-[rel:MENTIONS]->(e)
 SET rel.updated_at = datetime(), rel.weight = entity.importance`,
-                                                { ...documentProperties, entities }
-                                        );
+                                                        { ...documentProperties, entities: entityBatch }
+                                                );
+                                        }
                                 }
                                 if (extraction?.relationships?.length) {
                                         const relationships = extraction.relationships.map(rel => ({
@@ -157,15 +164,18 @@ SET rel.updated_at = datetime(), rel.weight = entity.importance`,
                                                 type: rel.type || 'related_to',
                                                 description: rel.description || '',
                                         }));
-                                        await tx.run(
-                                                `UNWIND $relationships AS relationship
+                                        for (const relationshipBatch of this.chunkItems(relationships)) {
+                                                if (!relationshipBatch.length) continue;
+                                                await tx.run(
+                                                        `UNWIND $relationships AS relationship
 MATCH (source:Entity {project_name: $projectName, entity_id: relationship.sourceId})
 MATCH (target:Entity {project_name: $projectName, entity_id: relationship.targetId})
 MERGE (source)-[rel:RELATES_TO {project_name: $projectName, type: relationship.type}]->(target)
 SET rel.description = relationship.description,
     rel.updated_at = datetime()`,
-                                                { projectName: this.projectName, relationships }
-                                        );
+                                                        { projectName: this.projectName, relationships: relationshipBatch }
+                                                );
+                                        }
                                 }
                         });
         }
@@ -211,17 +221,21 @@ DETACH DELETE doc`,
         ): Promise<void> {
                 const filtered = payloads.filter(payload => payload.entities.length || payload.relationships.length);
                 if (!filtered.length) return;
-                await this.runWrite('batchUpsertAdvancedEntities', async tx => {
-                        for (const payload of filtered) {
-                                await this.mergeDocumentShell(tx, payload.notePath);
-                                if (payload.entities.length) {
-                                        await this.mergeAdvancedEntities(tx, payload.notePath, payload.entities);
+                const payloadBatches = this.chunkItems(filtered);
+                for (const payloadBatch of payloadBatches) {
+                        if (!payloadBatch.length) continue;
+                        await this.runWrite('batchUpsertAdvancedEntities', async tx => {
+                                for (const payload of payloadBatch) {
+                                        await this.mergeDocumentShell(tx, payload.notePath);
+                                        if (payload.entities.length) {
+                                                await this.mergeAdvancedEntities(tx, payload.notePath, payload.entities);
+                                        }
+                                        if (payload.relationships.length) {
+                                                await this.mergeAdvancedRelationships(tx, payload.relationships);
+                                        }
                                 }
-                                if (payload.relationships.length) {
-                                        await this.mergeAdvancedRelationships(tx, payload.relationships);
-                                }
-                        }
-                });
+                        });
+                }
         }
 
         private async runWrite<T>(context: string, handler: (tx: ManagedTransaction) => Promise<T>): Promise<T> {
@@ -245,8 +259,10 @@ SET doc.updated_at = datetime()`,
         }
 
         private async mergeAdvancedEntities(tx: ManagedTransaction, notePath: string, entities: AdvancedEntity[]): Promise<void> {
-                await tx.run(
-                        `UNWIND $entities AS entity
+                for (const entityBatch of this.chunkItems(entities)) {
+                        if (!entityBatch.length) continue;
+                        await tx.run(
+                                `UNWIND $entities AS entity
 MERGE (e:Entity {project_name: $projectName, name: entity.name})
 SET e.type = entity.type,
     e.description = entity.description,
@@ -255,20 +271,36 @@ WITH e
 MATCH (doc:Document {project_name: $projectName, path: $path})
 MERGE (doc)-[r:MENTIONS]->(e)
 SET r.last_seen = datetime()`,
-                        { projectName: this.projectName, path: notePath, entities }
-                );
+                                { projectName: this.projectName, path: notePath, entities: entityBatch }
+                        );
+                }
         }
 
         private async mergeAdvancedRelationships(tx: ManagedTransaction, relationships: AdvancedRelationship[]): Promise<void> {
-                await tx.run(
-                        `UNWIND $relationships AS rel
+                for (const relationshipBatch of this.chunkItems(relationships)) {
+                        if (!relationshipBatch.length) continue;
+                        await tx.run(
+                                `UNWIND $relationships AS rel
 MATCH (src:Entity {project_name: $projectName, name: rel.src})
 MATCH (tgt:Entity {project_name: $projectName, name: rel.tgt})
 MERGE (src)-[r:RELATES_TO {project_name: $projectName, description: rel.description}]->(tgt)
 SET r.keywords = rel.keywords,
     r.weight = rel.weight,
     r.updated_at = datetime()`,
-                        { projectName: this.projectName, relationships }
-                );
+                                { projectName: this.projectName, relationships: relationshipBatch }
+                        );
+                }
+        }
+
+        private chunkItems<T>(items: T[], chunkSize: number = this.maxBatchSize): T[][] {
+                if (!Array.isArray(items) || items.length === 0) {
+                        return [];
+                }
+                const normalizedSize = Math.max(1, chunkSize);
+                const chunks: T[][] = [];
+                for (let i = 0; i < items.length; i += normalizedSize) {
+                        chunks.push(items.slice(i, i + normalizedSize));
+                }
+                return chunks;
         }
 }

@@ -1,0 +1,66 @@
+{
+  "name": "Obsidian RAG Cache Export",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "obsidian-rag-cache",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:27123/cache-overlay",
+        "allowUnauthorizedCerts": true
+      },
+      "id": "2",
+      "name": "Fetch Cache Overlay",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [560, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "https://n8n.yourdomain.com/webhook/export-cache",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \"vault\": $json[\"project_name\"], \"chunks\": $json[\"chunks\"] }"
+      },
+      "id": "3",
+      "name": "Forward to Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [820, 300]
+    }
+  ],
+  "connections": {
+    "Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Cache Overlay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Cache Overlay": {
+      "main": [
+        [
+          {
+            "node": "Forward to Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

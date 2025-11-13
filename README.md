@@ -171,6 +171,10 @@ yarn dev
 
 > **Note:** Use **Node.js 18+** (the Makefile will stop if an older runtime is detected) and copy `.env.template` to `.env` before running `make init` or any Supabase tooling so your credentials are available.
 
+### Generate API documentation
+
+Run `yarn docs` to build a TypeDoc site under `docs/api/`. Publishing those HTML files alongside releases helps downstream automations (n8n, bots, CLI tools) understand the available services without digging through the codebase.
+
 ### Requirements
 - Node.js v18+
 - Yarn  

@@ -15,3 +15,19 @@ The PR already contains every other file that needs to accompany the release. Do
 7. `versions.json`
 
 If new release notes or metadata updates are required, edit the files above and regenerate the distributable before uploading the ZIP.
+
+## Release Checklist
+
+Follow this quick checklist before tagging a release:
+
+1. **Bump plugin metadata**
+   - Update `manifest.json` and `versions.json` with the new semantic version.
+   - Run `yarn version` or `node version-bump.mjs` if you prefer the scripted helper.
+2. **Verify build output**
+   - Run `yarn build` and confirm `main.js`, `manifest.json`, and `styles.css` are regenerated.
+   - Execute `yarn docs` if you plan to publish the generated API reference alongside the release.
+3. **Prepare the archive**
+   - Zip the production bundle into `release/obsidian-rag-<version>.zip` and upload it to GitHub Releases.
+4. **Tag and push**
+   - Create an annotated tag (e.g., `git tag -a v1.0.0 -m "Release v1.0.0"`).
+   - Push the tag and the release branch to GitHub so downstream automations (n8n, CLI scripts) can pick up the new version.
