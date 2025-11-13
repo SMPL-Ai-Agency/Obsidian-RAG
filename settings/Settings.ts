@@ -13,10 +13,10 @@ export interface ChunkSettings {
  * Configuration for excluded paths
  */
 export interface ExclusionSettings {
-	excludedFolders: string[];      // User-defined folders to exclude from processing
-	excludedFileTypes: string[];    // User-defined file extensions to exclude
-	excludedFilePrefixes: string[]; // User-defined file name prefixes to exclude
-	excludedFiles: string[];        // User-defined specific files to exclude
+        excludedFolders: string[];      // User-defined folders to exclude from processing
+        excludedFileTypes: string[];    // User-defined file extensions to exclude
+        excludedFilePrefixes: string[]; // User-defined file name prefixes to exclude
+        excludedFiles: string[];        // User-defined specific files to exclude
 	// System-level exclusions that are always applied but not shown in UI
 	systemExcludedFolders: string[];
 	systemExcludedFileTypes: string[];
@@ -389,10 +389,10 @@ cache: { ...DEFAULT_EMBEDDING_CACHE_SETTINGS },
  * Note: This function is used internally for file processing and combines both user-defined and system-level exclusions.
  */
 export function getAllExclusions(settings: ObsidianRAGSettings): {
-	excludedFolders: string[],
-	excludedFileTypes: string[],
-	excludedFilePrefixes: string[],
-	excludedFiles: string[]
+        excludedFolders: string[],
+        excludedFileTypes: string[],
+        excludedFilePrefixes: string[],
+        excludedFiles: string[]
 } {
 	const exclusions = settings.exclusions;
 	return {
@@ -420,10 +420,10 @@ export function getAllExclusions(settings: ObsidianRAGSettings): {
  * This helper can be used in UI components to ensure that system exclusions remain hidden.
  */
 export function getUserExclusions(settings: ObsidianRAGSettings): {
-	excludedFolders: string[],
-	excludedFileTypes: string[],
-	excludedFilePrefixes: string[],
-	excludedFiles: string[]
+        excludedFolders: string[],
+        excludedFileTypes: string[],
+        excludedFilePrefixes: string[],
+        excludedFiles: string[]
 } {
 	const exclusions = settings.exclusions;
 	return {
@@ -445,5 +445,39 @@ export function isVaultInitialized(settings: ObsidianRAGSettings): boolean {
  * Helper to create a new vault ID.
  */
 export function generateVaultId(): string {
-	return crypto.randomUUID();
+        return crypto.randomUUID();
+}
+
+function normalizeSyncFilePath(path: string): string {
+        const trimmed = path.trim();
+        if (!trimmed) {
+                throw new Error('Sync file path cannot be empty.');
+        }
+        return trimmed;
+}
+
+export function updateSystemSyncFileExclusions(
+        exclusions: ExclusionSettings,
+        nextSyncFilePath: string,
+        previousSyncFilePath?: string
+): void {
+        const normalizedNextPath = normalizeSyncFilePath(nextSyncFilePath);
+        const normalizedPreviousPath = previousSyncFilePath?.trim();
+        const preservedEntries = new Set<string>(SYSTEM_EXCLUSIONS.files);
+        const existingSystemFiles = exclusions.systemExcludedFiles ?? [];
+
+        for (const file of existingSystemFiles) {
+                if (!file) continue;
+                if (
+                        normalizedPreviousPath &&
+                        (file === normalizedPreviousPath || file === `${normalizedPreviousPath}.backup`)
+                ) {
+                        continue;
+                }
+                preservedEntries.add(file);
+        }
+
+        preservedEntries.add(normalizedNextPath);
+        preservedEntries.add(`${normalizedNextPath}.backup`);
+        exclusions.systemExcludedFiles = Array.from(preservedEntries);
 }
