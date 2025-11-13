@@ -128,7 +128,7 @@ For task tracking and progress, see [TASKS.md](https://github.com/SMPL-Ai-Agency
 - Familiarity with the Obsidian Plugin API  
 
 ### Project Structure
-```
+
 Obsidian-RAG/
 ├── main.ts                       # Plugin entry point and lifecycle
 ├── settings/
@@ -165,7 +165,7 @@ Obsidian-RAG/
 ├── styles.css
 ├── manifest.json
 └── README.md
-```
+
 ### Contributing
 We welcome contributions to improve Obsidian RAG.  
 To contribute:
