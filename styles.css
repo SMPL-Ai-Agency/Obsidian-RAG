@@ -287,3 +287,24 @@ If your plugin does not need CSS, delete this file.
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.obsidian-rag-entity-preview__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.obsidian-rag-entity-preview__action {
+    font-size: 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    padding: 2px 8px;
+    background: var(--background-primary-alt);
+    color: var(--text-normal);
+    cursor: pointer;
+}
+
+.obsidian-rag-entity-preview__action:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

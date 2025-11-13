@@ -47,9 +47,14 @@ export interface OllamaSettings {
 /**
  * Combined embedding provider settings
  */
+export interface EmbeddingCacheSettings {
+ttlHours: number;         // How long (in hours) to reuse embeddings before regenerating
+}
+
 export interface EmbeddingProviderSettings {
-        ollama: OllamaSettings;    // Ollama configuration
-        openai: OpenAISettings;    // OpenAI configuration
+ollama: OllamaSettings;    // Ollama configuration
+openai: OpenAISettings;    // OpenAI configuration
+cache: EmbeddingCacheSettings; // Cache controls for generated vectors
 }
 
 /**
@@ -63,14 +68,18 @@ export const DEFAULT_OPENAI_SETTINGS: OpenAISettings = {
 };
 
 export const DEFAULT_OLLAMA_SETTINGS: OllamaSettings = {
-        enabled: true,
-        url: 'http://localhost:11434',
-        model: 'nomic-embed-text',
-        fallbackToOpenAI: true,
+enabled: true,
+url: 'http://localhost:11434',
+model: 'nomic-embed-text',
+fallbackToOpenAI: true,
+};
+
+export const DEFAULT_EMBEDDING_CACHE_SETTINGS: EmbeddingCacheSettings = {
+ttlHours: 24,
 };
 
 export const DEFAULT_NEO4J_SETTINGS: Neo4jSettings = {
-        url: 'bolt://localhost:7687',
+url: 'bolt://localhost:7687',
         username: 'neo4j',
         password: '',
         database: 'neo4j',
@@ -78,8 +87,9 @@ export const DEFAULT_NEO4J_SETTINGS: Neo4jSettings = {
 };
 
 export const DEFAULT_EMBEDDING_PROVIDER_SETTINGS: EmbeddingProviderSettings = {
-        ollama: { ...DEFAULT_OLLAMA_SETTINGS },
-        openai: { ...DEFAULT_OPENAI_SETTINGS },
+ollama: { ...DEFAULT_OLLAMA_SETTINGS },
+openai: { ...DEFAULT_OPENAI_SETTINGS },
+cache: { ...DEFAULT_EMBEDDING_CACHE_SETTINGS },
 };
 
 /**
@@ -203,7 +213,7 @@ export interface ObsidianRAGSettings {
         supabase: SupabaseSettings;  // Supabase configuration
         neo4j: Neo4jSettings;        // Neo4j configuration
         openai?: OpenAISettings;     // Deprecated: OpenAI configuration (kept for backward compatibility)
-        embeddings: EmbeddingProviderSettings; // Embedding provider configuration
+embeddings: EmbeddingProviderSettings; // Embedding provider configuration
 	// Processing settings
 	chunking: ChunkSettings;     // Text chunking settings
 	queue: QueueSettings;        // Queue processing settings
@@ -303,10 +313,11 @@ export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
         },
         neo4j: { ...DEFAULT_NEO4J_SETTINGS },
         openai: { ...DEFAULT_OPENAI_SETTINGS },
-        embeddings: {
-                ollama: { ...DEFAULT_OLLAMA_SETTINGS },
-                openai: { ...DEFAULT_OPENAI_SETTINGS },
-        },
+embeddings: {
+ollama: { ...DEFAULT_OLLAMA_SETTINGS },
+openai: { ...DEFAULT_OPENAI_SETTINGS },
+cache: { ...DEFAULT_EMBEDDING_CACHE_SETTINGS },
+},
         chunking: { ...DEFAULT_CHUNKING_OPTIONS },
 	queue: {
 		maxConcurrent: 3,

@@ -27,19 +27,20 @@ export class EmbeddingService {
         private embeddingCache: Map<string, CachedEmbeddingRecord> = new Map();
         private readonly cacheNamespace = 'obsidian-rag:embeddings';
         private readonly cacheIndexKey = `${this.cacheNamespace}:index`;
-        private readonly cacheMaxEntries = 200;
-        private readonly cacheTTL = 1000 * 60 * 60 * 24; // 24 hours
+private readonly cacheMaxEntries = 200;
+private cacheTTLms = 1000 * 60 * 60 * 24; // default 24 hours
         private storage: StorageLike | null;
         private cacheIndex: string[] = [];
 
-        constructor(settings: EmbeddingProviderSettings, errorHandler: ErrorHandler, llmModel?: string) {
-                this.settings = settings;
-                this.errorHandler = errorHandler;
-                this.llmModel = llmModel?.trim() || 'llama3';
-                this.storage = this.detectStorage();
-                this.restoreCacheIndex();
-                this.initializeOpenAIClient();
-        }
+constructor(settings: EmbeddingProviderSettings, errorHandler: ErrorHandler, llmModel?: string) {
+this.settings = settings;
+this.errorHandler = errorHandler;
+this.llmModel = llmModel?.trim() || 'llama3';
+this.storage = this.detectStorage();
+this.cacheTTLms = this.resolveCacheTTL(settings);
+this.restoreCacheIndex();
+this.initializeOpenAIClient();
+}
 
         /**
          * Check if any embedding provider is available.
@@ -51,14 +52,15 @@ export class EmbeddingService {
         /**
          * Updates provider settings and refreshes OpenAI client state.
          */
-        public updateSettings(settings: EmbeddingProviderSettings, llmModel?: string): void {
-                this.settings = settings;
-                if (llmModel) {
-                        this.llmModel = llmModel;
-                }
-                this.initializeOpenAIClient();
-                this.missingOpenAINoticeShown = false;
-        }
+public updateSettings(settings: EmbeddingProviderSettings, llmModel?: string): void {
+this.settings = settings;
+if (llmModel) {
+this.llmModel = llmModel;
+}
+this.cacheTTLms = this.resolveCacheTTL(settings);
+this.initializeOpenAIClient();
+this.missingOpenAINoticeShown = false;
+}
 
         /**
          * Updates the dedicated LLM model used for generative prompts.
@@ -403,20 +405,26 @@ export class EmbeddingService {
                 }
         }
 
-        private getCachedEmbedding(text: string, provider: string | null): number[] | null {
-                if (!provider) return null;
-                const key = this.getCacheKey(text, provider);
-                const record = this.embeddingCache.get(key) ?? this.readCacheRecord(key);
-                if (!record) return null;
-                const isExpired = Date.now() - record.timestamp > this.cacheTTL;
-                if (isExpired) {
-                        this.removeCacheEntry(key);
-                        this.cacheIndex = this.cacheIndex.filter(entry => entry !== key);
-                        this.persistCacheIndex();
-                        return null;
-                }
-                return record.vector;
-        }
+private getCachedEmbedding(text: string, provider: string | null): number[] | null {
+if (!provider) return null;
+const key = this.getCacheKey(text, provider);
+const record = this.embeddingCache.get(key) ?? this.readCacheRecord(key);
+if (!record) return null;
+const isExpired = Date.now() - record.timestamp > this.cacheTTLms;
+if (isExpired) {
+this.removeCacheEntry(key);
+this.cacheIndex = this.cacheIndex.filter(entry => entry !== key);
+this.persistCacheIndex();
+return null;
+}
+return record.vector;
+}
+
+private resolveCacheTTL(settings: EmbeddingProviderSettings): number {
+const ttlHours = settings.cache?.ttlHours;
+const normalized = Math.max(1, Math.min(typeof ttlHours === 'number' ? ttlHours : 24, 168));
+return normalized * 60 * 60 * 1000;
+}
 
         private persistEmbeddingToCache(text: string, provider: string, vector: number[]): void {
                 const key = this.getCacheKey(text, provider);

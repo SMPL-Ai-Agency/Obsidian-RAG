@@ -21,10 +21,11 @@ const { mockCreate, default: MockOpenAI } = jest.requireMock('openai');
 const mockOpenAIConstructor = MockOpenAI as jest.Mock;
 
 describe('EmbeddingService provider selection', () => {
-        const baseSettings: EmbeddingProviderSettings = {
-                ollama: { enabled: false, url: '', model: 'nomic-embed-text', fallbackToOpenAI: true },
-                openai: { apiKey: '', model: 'text-embedding-3-small', maxTokens: 8000, temperature: 0 },
-        };
+const baseSettings: EmbeddingProviderSettings = {
+ollama: { enabled: false, url: '', model: 'nomic-embed-text', fallbackToOpenAI: true },
+openai: { apiKey: '', model: 'text-embedding-3-small', maxTokens: 8000, temperature: 0 },
+cache: { ttlHours: 24 },
+};
         const errorHandler = { handleError: jest.fn() } as unknown as ErrorHandler;
         const createStorageMock = () => {
                 const store: Record<string, string> = {};
@@ -56,14 +57,16 @@ describe('EmbeddingService provider selection', () => {
                 delete (globalThis as any).localStorage;
         });
 
-        const createService = (overrides?: Partial<EmbeddingProviderSettings>) => {
-                return new EmbeddingService({
-                        ...baseSettings,
-                        ...overrides,
-                        ollama: { ...baseSettings.ollama, ...(overrides?.ollama ?? {}) },
-                        openai: { ...baseSettings.openai, ...(overrides?.openai ?? {}) },
-                }, errorHandler, 'llama3');
-        };
+const createService = (overrides?: Partial<EmbeddingProviderSettings>) => {
+const merged: EmbeddingProviderSettings = {
+...baseSettings,
+...overrides,
+ollama: { ...baseSettings.ollama, ...(overrides?.ollama ?? {}) },
+openai: { ...baseSettings.openai, ...(overrides?.openai ?? {}) },
+cache: { ...baseSettings.cache, ...(overrides?.cache ?? {}) },
+};
+return new EmbeddingService(merged, errorHandler, 'llama3');
+};
 
         it('falls back to OpenAI when Ollama embedding fails and fallback is enabled', async () => {
                 (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 500 });
@@ -104,7 +107,7 @@ describe('EmbeddingService provider selection', () => {
                 expect(service.isInitialized()).toBe(false);
         });
 
-        it('caches Ollama embeddings to avoid redundant requests', async () => {
+it('caches Ollama embeddings to avoid redundant requests', async () => {
                 (global.fetch as jest.Mock).mockResolvedValue({
                         ok: true,
                         json: () => Promise.resolve({ embedding: [0.1, 0.2], model: 'nomic-embed-text' }),
@@ -116,5 +119,24 @@ describe('EmbeddingService provider selection', () => {
                 await service.generateEmbedding('Repeated chunk');
                 expect(global.fetch).toHaveBeenCalledTimes(1);
                 expect(storageMock.setItem).toHaveBeenCalled();
-        });
+});
+
+it('expires cached embeddings after the configured TTL elapses', async () => {
+const baseTime = 1_000_000;
+const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(baseTime);
+(global.fetch as jest.Mock).mockResolvedValue({
+ok: true,
+json: () => Promise.resolve({ embedding: [0.4, 0.5], model: 'nomic-embed-text' }),
+});
+const service = createService({
+ollama: { enabled: true, url: 'http://localhost:11434', model: 'nomic-embed-text', fallbackToOpenAI: false },
+cache: { ttlHours: 1 },
+});
+await service.generateEmbedding('Expiring chunk');
+expect(global.fetch).toHaveBeenCalledTimes(1);
+nowSpy.mockReturnValue(baseTime + 2 * 60 * 60 * 1000);
+await service.generateEmbedding('Expiring chunk');
+expect(global.fetch).toHaveBeenCalledTimes(2);
+nowSpy.mockRestore();
+});
 });

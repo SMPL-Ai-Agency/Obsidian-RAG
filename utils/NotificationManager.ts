@@ -1,5 +1,5 @@
 // src/utils/NotificationManager.ts
-import { Notice } from 'obsidian';
+import { App, Notice, TFile } from 'obsidian';
 import { TaskProgress } from '../models/ProcessingTask';
 
 export class NotificationManager {
@@ -9,25 +9,30 @@ export class NotificationManager {
 		text: HTMLElement;
 	} | null = null;
 	private statusBarItem: HTMLElement;
-	private enableNotifications: boolean;
-        private enableProgressBar: boolean;
+private enableNotifications: boolean;
+private enableProgressBar: boolean;
+private readonly app: App;
         private notificationQueue: string[] = [];
         private isProcessingQueue: boolean = false;
         private entityPreviewPanel: HTMLElement | null = null;
         private entityPreviewList: HTMLElement | null = null;
         private entityPreviewMeta: HTMLElement | null = null;
-        private entityPreviewRelations: HTMLElement | null = null;
+private entityPreviewRelations: HTMLElement | null = null;
+private entityPreviewAction: HTMLButtonElement | null = null;
+private entityPreviewNotePath: string | null = null;
 
-	constructor(
-		statusBarEl: HTMLElement,
-		enableNotifications: boolean,
-		enableProgressBar: boolean
-	) {
-		this.statusBarItem = statusBarEl;
-		this.enableNotifications = enableNotifications;
-		this.enableProgressBar = enableProgressBar;
-		this.initializeStatusBar();
-        }
+constructor(
+app: App,
+statusBarEl: HTMLElement,
+enableNotifications: boolean,
+enableProgressBar: boolean
+) {
+this.app = app;
+this.statusBarItem = statusBarEl;
+this.enableNotifications = enableNotifications;
+this.enableProgressBar = enableProgressBar;
+this.initializeStatusBar();
+}
 
 	/**
 	 * Shows a notification message.
@@ -70,7 +75,17 @@ export class NotificationManager {
                 if (!this.entityPreviewList || !this.entityPreviewMeta || !this.entityPreviewRelations) {
                         return;
                 }
-                this.entityPreviewMeta.textContent = `${payload.entities.length} entities • ${(payload.relationships?.length || 0)} links • ${payload.notePath}`;
+this.entityPreviewMeta.textContent = `${payload.entities.length} entities • ${(payload.relationships?.length || 0)} links`;
+this.entityPreviewNotePath = payload.notePath;
+if (this.entityPreviewAction) {
+this.entityPreviewAction.disabled = !payload.notePath;
+if (payload.notePath) {
+this.entityPreviewAction.textContent = `Open ${payload.notePath.split('/').pop()}`;
+this.entityPreviewAction.setAttribute('aria-label', `Open ${payload.notePath}`);
+} else {
+this.entityPreviewAction.removeAttribute('aria-label');
+}
+}
                 this.entityPreviewList.innerHTML = '';
                 payload.entities.slice(0, 6).forEach(entity => {
                         const item = document.createElement('li');
@@ -186,38 +201,71 @@ export class NotificationManager {
                 if (this.entityPreviewList) {
                         this.entityPreviewList.innerHTML = '';
                 }
-                if (this.entityPreviewRelations) {
-                        this.entityPreviewRelations.textContent = '';
-                }
-        }
+if (this.entityPreviewRelations) {
+this.entityPreviewRelations.textContent = '';
+}
+this.entityPreviewNotePath = null;
+if (this.entityPreviewAction) {
+this.entityPreviewAction.disabled = true;
+this.entityPreviewAction.textContent = 'Open note';
+this.entityPreviewAction.removeAttribute('aria-label');
+}
+}
 
-        private ensureEntityPreviewPanel(): void {
-                if (this.entityPreviewPanel) return;
-                const panel = document.createElement('div');
-                panel.addClass('obsidian-rag-entity-preview');
-                const meta = document.createElement('div');
-                meta.addClass('obsidian-rag-entity-preview__meta');
-                const list = document.createElement('ul');
-                list.addClass('obsidian-rag-entity-preview__list');
-                const relations = document.createElement('div');
-                relations.addClass('obsidian-rag-entity-preview__relations');
-                panel.appendChild(meta);
-                panel.appendChild(list);
-                panel.appendChild(relations);
-                this.statusBarItem.appendChild(panel);
-                this.entityPreviewPanel = panel;
-                this.entityPreviewList = list;
-                this.entityPreviewMeta = meta;
-                this.entityPreviewRelations = relations;
-        }
+private ensureEntityPreviewPanel(): void {
+if (this.entityPreviewPanel) return;
+const panel = document.createElement('div');
+panel.addClass('obsidian-rag-entity-preview');
+const meta = document.createElement('div');
+meta.addClass('obsidian-rag-entity-preview__meta');
+const list = document.createElement('ul');
+list.addClass('obsidian-rag-entity-preview__list');
+const relations = document.createElement('div');
+relations.addClass('obsidian-rag-entity-preview__relations');
+const actions = document.createElement('div');
+actions.addClass('obsidian-rag-entity-preview__actions');
+const openButton = document.createElement('button');
+openButton.addClass('obsidian-rag-entity-preview__action');
+openButton.type = 'button';
+openButton.textContent = 'Open note';
+openButton.disabled = true;
+openButton.addEventListener('click', (event) => {
+event.preventDefault();
+event.stopPropagation();
+this.openPreviewNote();
+});
+actions.appendChild(openButton);
+panel.appendChild(meta);
+panel.appendChild(list);
+panel.appendChild(relations);
+panel.appendChild(actions);
+this.statusBarItem.appendChild(panel);
+this.entityPreviewPanel = panel;
+this.entityPreviewList = list;
+this.entityPreviewMeta = meta;
+this.entityPreviewRelations = relations;
+this.entityPreviewAction = openButton;
+}
 
-        private destroyEntityPreviewPanel(): void {
+private destroyEntityPreviewPanel(): void {
                 if (this.entityPreviewPanel?.parentElement) {
                         this.entityPreviewPanel.parentElement.removeChild(this.entityPreviewPanel);
                 }
-                this.entityPreviewPanel = null;
-                this.entityPreviewList = null;
-                this.entityPreviewMeta = null;
-                this.entityPreviewRelations = null;
-        }
+this.entityPreviewPanel = null;
+this.entityPreviewList = null;
+this.entityPreviewMeta = null;
+this.entityPreviewRelations = null;
+this.entityPreviewAction = null;
+this.entityPreviewNotePath = null;
+}
+
+private async openPreviewNote(): Promise<void> {
+if (!this.entityPreviewNotePath) return;
+const file = this.app.vault.getAbstractFileByPath(this.entityPreviewNotePath);
+if (file && file instanceof TFile) {
+await this.app.workspace.openLinkText(this.entityPreviewNotePath, '', false);
+return;
+}
+new Notice('Unable to locate note for the entity preview.');
+}
 }

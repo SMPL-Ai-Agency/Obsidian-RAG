@@ -30,6 +30,7 @@ These are the built-in mechanisms and core behaviors the plugin implements.
 - **Automatic note synchronization:** Detects new, edited, or deleted notes and syncs them in near-real-time to **Supabase (vector)** and **Neo4j (graph)**.  
 - **Embedding generation service:** Uses **Ollama by default** for embeddings, with optional **OpenAI-compatible** models.
 - **Embedding response cache:** Stores normalized embeddings in local storage so unchanged chunks skip redundant Ollama/OpenAI requests and speed up queue runs.
+- **Embedding cache controls:** Tune the TTL (1–168 hours) directly in the plugin settings so large vaults can prioritize fewer recomputes while smaller ones keep the cache fresher.
 - **Graph construction engine:** Builds Neo4j nodes and relationships for notes, tags, and entities — enabling GraphRAG-style semantic-graph queries.
 - **LLM-powered entity extraction:** Optional entity/relationship mining driven by Ollama/OpenAI prompts, complete with Supabase entity vectors and Neo4j relationship weights.
 - **Queue and task management:** Handles sync jobs, retries, and parallel processing via an internal queue.  
@@ -69,6 +70,7 @@ The **LLM & Entity Extraction** section in the plugin settings enables a semanti
 - Embeds each entity and stores it in a new `entities` table inside Supabase for similarity search and deduplication.
 - Mirrors those entities and their inferred relationships (weights, keywords, descriptions) into Neo4j via the new `GraphBuilder` service.
 - Streams a compact **entity preview overlay** inside the Obsidian status bar (NotificationManager) so you can validate the latest extracted nodes and relationships without opening external dashboards.
+- Adds an inline **“Open note”** action to jump directly from the overlay to the source note when you want to audit the highlighted entities.
 
 > **Tip:** Install a generative Ollama model (e.g., `ollama pull llama3`) before enabling this feature so prompts and embeddings can stay local. The plugin falls back to OpenAI-compatible chat models when Ollama is unavailable.
 

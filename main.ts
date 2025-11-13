@@ -16,16 +16,17 @@ import { Neo4jService } from './services/Neo4jService';
 import { EntityExtractor } from './services/EntityExtractor';
 import { GraphBuilder } from './services/GraphBuilder';
 import {
-	ObsidianRAGSettings,
-	DEFAULT_SETTINGS,
-	DEFAULT_OPENAI_SETTINGS,
-	DEFAULT_OLLAMA_SETTINGS,
-	DEFAULT_NEO4J_SETTINGS,
-	DEFAULT_HYBRID_STRATEGY,
-	isVaultInitialized,
-	generateVaultId,
-	getAllExclusions,
-	SYSTEM_EXCLUSIONS
+ObsidianRAGSettings,
+DEFAULT_SETTINGS,
+DEFAULT_OPENAI_SETTINGS,
+DEFAULT_OLLAMA_SETTINGS,
+DEFAULT_NEO4J_SETTINGS,
+DEFAULT_HYBRID_STRATEGY,
+DEFAULT_EMBEDDING_CACHE_SETTINGS,
+isVaultInitialized,
+generateVaultId,
+getAllExclusions,
+SYSTEM_EXCLUSIONS
 } from './settings/Settings';
 import { ProcessingTask, TaskType, TaskStatus } from './models/ProcessingTask';
 import { ModePreviewManager, ModePreviewSummary, SyncOutcomeEntry } from './services/ModePreviewManager';
@@ -288,11 +289,12 @@ this.eventsRegistered = false;
 		// Initialize error handler
 		this.errorHandler = new ErrorHandler(this.settings?.debug ?? DEFAULT_SETTINGS.debug);
 		// Initialize notification manager
-		this.notificationManager = new NotificationManager(
-			this.addStatusBarItem(),
-			this.settings?.enableNotifications ?? true,
-			this.settings?.enableProgressBar ?? true
-		);
+this.notificationManager = new NotificationManager(
+this.app,
+this.addStatusBarItem(),
+this.settings?.enableNotifications ?? true,
+this.settings?.enableProgressBar ?? true
+);
 		this.statusManager?.setStatus(PluginStatus.INITIALIZING, { message: 'Core services initialized' });
 	}
 
@@ -307,25 +309,30 @@ this.eventsRegistered = false;
                 }
 
                 // Ensure embedding settings exist and merge defaults
-                if (!this.settings.embeddings) {
-                        const legacyOpenAI = storedSettings?.openai || this.settings.openai;
-                        this.settings.embeddings = {
-                                ollama: { ...DEFAULT_OLLAMA_SETTINGS },
-                                openai: {
-                                        ...DEFAULT_OPENAI_SETTINGS,
-                                        ...(legacyOpenAI || {}),
-                                },
-                        };
-                } else {
-                        this.settings.embeddings.ollama = {
-                                ...DEFAULT_OLLAMA_SETTINGS,
-                                ...(this.settings.embeddings.ollama || {}),
-                        };
-                        this.settings.embeddings.openai = {
-                                ...DEFAULT_OPENAI_SETTINGS,
-                                ...(this.settings.embeddings.openai || {}),
-                        };
-                }
+if (!this.settings.embeddings) {
+const legacyOpenAI = storedSettings?.openai || this.settings.openai;
+this.settings.embeddings = {
+ollama: { ...DEFAULT_OLLAMA_SETTINGS },
+openai: {
+...DEFAULT_OPENAI_SETTINGS,
+...(legacyOpenAI || {}),
+},
+cache: { ...DEFAULT_EMBEDDING_CACHE_SETTINGS },
+};
+} else {
+this.settings.embeddings.ollama = {
+...DEFAULT_OLLAMA_SETTINGS,
+...(this.settings.embeddings.ollama || {}),
+};
+this.settings.embeddings.openai = {
+...DEFAULT_OPENAI_SETTINGS,
+...(this.settings.embeddings.openai || {}),
+};
+this.settings.embeddings.cache = {
+...DEFAULT_EMBEDDING_CACHE_SETTINGS,
+...(this.settings.embeddings.cache || {}),
+};
+}
 
                 // Maintain deprecated openai field for backwards compatibility
                 this.settings.openai = {
@@ -490,11 +497,12 @@ this.eventsRegistered = false;
                                 },
                         });
 
-                        const notificationManager = this.notificationManager || new NotificationManager(
-                                this.addStatusBarItem(),
-                                this.settings.enableNotifications,
-                                this.settings.enableProgressBar
-                        );
+const notificationManager = this.notificationManager || new NotificationManager(
+this.app,
+this.addStatusBarItem(),
+this.settings.enableNotifications,
+this.settings.enableProgressBar
+);
 
 			this.queueService = new QueueService(
 				this.settings.queue.maxConcurrent,

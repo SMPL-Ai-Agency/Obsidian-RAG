@@ -304,21 +304,47 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                 return control;
                         });
 
-                new Setting(containerEl)
-                        .setName('Fallback to OpenAI')
-                        .setDesc('If enabled, OpenAI will be used when Ollama is unavailable or fails.')
-                        .addToggle(toggle =>
-                                toggle
-                                        .setValue(this.settings.embeddings.ollama.fallbackToOpenAI)
-                                        .onChange(async (value) => {
-                                                this.settings.embeddings.ollama.fallbackToOpenAI = value;
-                                                await this.plugin.saveSettings();
-                                                new Notice(`OpenAI fallback ${value ? 'enabled' : 'disabled'}.`);
-                                        })
-                        );
+new Setting(containerEl)
+.setName('Fallback to OpenAI')
+.setDesc('If enabled, OpenAI will be used when Ollama is unavailable or fails.')
+.addToggle(toggle =>
+toggle
+.setValue(this.settings.embeddings.ollama.fallbackToOpenAI)
+.onChange(async (value) => {
+this.settings.embeddings.ollama.fallbackToOpenAI = value;
+await this.plugin.saveSettings();
+new Notice(`OpenAI fallback ${value ? 'enabled' : 'disabled'}.`);
+})
+);
 
-                new Setting(containerEl)
-                        .setName('OpenAI API Key')
+new Setting(containerEl)
+.setName('Embedding cache TTL')
+.setDesc('How long embeddings are reused before regeneration (in hours). Larger vaults can increase this to avoid recompute.')
+.addSlider(slider =>
+slider
+.setLimits(1, 168, 1)
+.setValue(this.settings.embeddings.cache?.ttlHours ?? 24)
+.setDynamicTooltip()
+.onChange(async (value) => {
+this.settings.embeddings.cache = this.settings.embeddings.cache || { ttlHours: value };
+this.settings.embeddings.cache.ttlHours = value;
+await this.plugin.saveSettings();
+this.scheduleSettingNotice('embedding-cache-ttl', `Embedding cache TTL set to ${value} hour${value === 1 ? '' : 's'}.`);
+})
+)
+.addExtraButton(button =>
+button
+.setIcon('rotate-ccw')
+.setTooltip('Reset to 24 hours')
+.onClick(async () => {
+this.settings.embeddings.cache.ttlHours = 24;
+await this.plugin.saveSettings();
+this.display();
+})
+);
+
+new Setting(containerEl)
+.setName('OpenAI API Key')
                         .setDesc('Used when falling back to OpenAI for embeddings.')
                         .addText(text =>
                                 text.setPlaceholder('Enter your API key')
