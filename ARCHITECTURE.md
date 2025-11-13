@@ -38,49 +38,57 @@ Obsidian-RAG/
    - **SettingsTab.ts**: Renders UI with tabs for Supabase/Neo4j config, connection tests, resets, and previews. Includes status indicators and donation QR.
 
 3. **Services Layer** (Core Business Logic):
-   - **EmbeddingService.ts**: Generates embeddings via Ollama (default) or OpenAI. Supports retries and fallbacks.
-   - **SupabaseService.ts**: Manages vector store ops—upsert chunks, delete records, initialize tables/indexes via SQL scripts.
-   - **Neo4jService.ts** (implied/integrated): Upserts nodes (notes, entities) and relationships (tags, links) for GraphRAG.
-   - **QueueService.ts**: Async task queue for processing (e.g., Bull.js-inspired, but custom). Handles parallelism and events.
-   - **OfflineQueueManager.ts**: Persists tasks locally (e.g., via Obsidian's data.json); reconciles on reconnect.
-   - **InitialSyncManager.ts**: Batch processes entire vault on first run or manual trigger.
-   - **SyncDetectionManager.ts**: Detects quiet periods for background syncs.
-   - **StatusManager.ts**: Tracks progress, emits events for UI updates.
-   - **SyncFileManager.ts**: Coordinates cross-device sync via a shared metadata file.
-   - **MetadataExtractor.ts**: Pulls YAML frontmatter, tags, and entities from notes.
-   - **EventEmitter.ts**: Central pub/sub for inter-service communication (e.g., `queue:processed` triggers status update).
+   - **EmbeddingService.ts**: Generates embeddings via Ollama (default) or OpenAI with client-side rate limiting and padding to 768-d vectors.
+   - **SupabaseService.ts**: Manages vector store ops—initializes the `documents` and `obsidian_file_status` tables, serializes per-file writes, and exposes helpers for deletes or metadata lookups.
+   - **Neo4jService.ts**: Upserts graph nodes/relationships for documents, chunks, entities, and relationships, and enforces uniqueness constraints scoped by `project_name`.
+   - **QueueService.ts**: Custom FIFO queue that uses `TextSplitter`, `MetadataExtractor`, and `HybridRAGService` to execute vector and/or graph stages depending on the configured `SyncMode`. Emits progress via `EventEmitter` for status widgets.
+   - **HybridRAGService.ts**: Enforces hybrid execution order (vector-first, graph-first, or parallel) and dual-write requirements.
+   - **OfflineQueueManager.ts**: Stores serialized operations in vault storage, retries with exponential backoff, and uses `SyncFileManager` or Supabase APIs to reconcile.
+   - **InitialSyncManager.ts**: Scans the vault in batches, respects exclusion filters, listens for queue completion events, and throttles to avoid blocking Obsidian.
+   - **SyncDetectionManager.ts**: Waits for a quiet period after Obsidian Sync/remote changes before bootstrapping the initial sync.
+   - **SyncFileManager.ts**: Creates and maintains `_obsidianragsync.md`, backs it up, and records device-level sync metadata for multi-device consistency.
+   - **MetadataExtractor.ts** & **EntityExtractor.ts**: Normalize YAML/frontmatter into `DocumentMetadata`, optionally run LLM/Ollama-powered entity extraction with heuristics.
+   - **EventEmitter.ts**: Lightweight pub/sub utility backing queue progress, error handling, and Mode Preview updates.
 
-4. **Utils Layer**:
+4. **Observability & UX**:
+   - **StatusManager.ts**: Updates the status bar item with plugin state transitions (initializing, waiting for sync, ready, error).
+   - **ModePreviewManager.ts**: Records the last few sync outcomes, renders summaries/ribbon buttons, and exposes modal history plus summaries in `SettingsTab.ts`.
+   - **NotificationManager.ts**: Displays progress notices during long-running operations (initial sync, queue retries) and integrates with Obsidian toasts.
+   - **SettingsTab.ts**: Presents Supabase/Neo4j credentials, hybrid controls, Mode Preview summaries, and vault initialization/reset helpers alongside connection tests.
+
+5. **Utils Layer**:
    - **TextSplitter.ts**: Chunks notes with overlap, handles YAML extraction and preprocessing.
    - **ErrorHandler.ts**: Centralized logging, retries, and notifications.
    - **FileTracker.ts**: Hashes metadata for change detection.
    - **NotificationManager.ts**: In-app toasts, progress bars, and overlays (e.g., sync graph).
 
-5. **Models Layer**:
+6. **Models Layer**:
    - TypeScript interfaces for consistency: `DocumentChunk.ts` (chunk metadata with file_id, lines), `ProcessingTask.ts` (queue items), `SyncModels.ts` (DB schemas).
 
 ## Data Flow
 ### Sync Process (Hybrid Mode Example)
-1. **Trigger**: Vault event (create/update/delete) or command → `SyncManager` enqueues `ProcessingTask`.
-2. **Queue Processing**:
-   - Extract metadata (`MetadataExtractor`).
+1. **Trigger**: `FileTracker` observes a vault event (create/update/delete) or the user invokes a command. The plugin builds a `ProcessingTask` and hands it to `QueueService`.
+2. **Preflight**: `SyncDetectionManager` and `InitialSyncManager` gate the first wave of tasks until Obsidian Sync settles and the vault-level `_obsidianragsync.md` file is initialized through `SyncFileManager`.
+3. **Queue Processing**:
+   - Extract metadata (`MetadataExtractor`) and optionally request entities (`EntityExtractor`).
    - Split text into chunks (`TextSplitter`).
    - Generate embeddings (`EmbeddingService`).
-   - Upsert to Supabase (`SupabaseService`): Insert into `documents` table with `project_name` scope.
-   - Extract/build entities → Upsert to Neo4j: Create nodes/relationships.
-3. **Offline Handling**: If disconnected, persist to local queue; resume via `OfflineQueueManager` on reconnect.
-4. **Error/Retry**: `ErrorHandler` logs and retries (exponential backoff).
-5. **Status**: `StatusManager` updates UI; notifications on completion/failure.
+   - `HybridRAGService` decides whether to run vector writes, graph writes, or both and in which order.
+   - Vector stage: Upsert to Supabase (`SupabaseService`) with per-file serialization, tag syncing, and hash comparisons.
+   - Graph stage: `Neo4jService` upserts documents, chunk nodes, entities, and relationships while pruning orphaned chunks.
+4. **Offline Handling**: If connectivity fails, the `OfflineQueueManager` captures the pending operation, persists it to disk, and retries using Supabase/SyncFileManager when back online.
+5. **Status/Telemetry**: `StatusManager`, `ModePreviewManager`, and `NotificationManager` subscribe to queue events via `EventEmitter` to refresh the status bar, ribbon icon, and modal summaries.
+6. **Error/Retry**: `ErrorHandler` logs context-rich metadata, surfaces notices, and the queue applies exponential backoff before retrying tasks.
 
 Mermaid Diagram for Sync Flow:
 ```mermaid
 flowchart TD
-    A[Vault Event] --> B[Enqueue Task]
+    A[FileTracker detects vault event] --> B[Enqueue Task]
     B --> C{Online?}
-    C -->|Yes| D[Process: Embed + Upsert Supabase/Neo4j]
+    C -->|Yes| D[QueueService + HybridRAGService]
     C -->|No| E[Queue Locally]
     E --> F[Reconnect] --> D
-    D --> G[Update Status/Notify]
+    D --> G[Update Status/Mode Preview]
     subgraph Services
     D
     end

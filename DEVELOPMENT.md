@@ -3,13 +3,13 @@
 This document provides guidance for developers contributing to or extending Obsidian-RAG, an ingestion-only Obsidian plugin forked from MindMatrix. It focuses on setting up a development environment, understanding the codebase, writing tests, and following best practices for contributions. For architectural details, refer to [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Prerequisites
-- **Node.js**: Version 18+ (the Makefile will enforce this).
+- **Node.js**: Version 18+ (enforced by `make dev`).
 - **Yarn**: For package management.
 - **Obsidian**: Latest version for testing the plugin.
 - **Databases**: Supabase (with pgvector extension) and Neo4j 5.x for full feature testing.
 - **Embedding Providers**: Ollama (local or cloud) or OpenAI-compatible API keys.
 - **Git**: For cloning and managing the repo.
-- **Optional Tools**: Jest for testing, ESLint for linting, and a TypeScript-aware IDE like VS Code.
+- **Optional Tools**: Jest for testing, ESLint for linting, a TypeScript-aware IDE like VS Code, and `ts-node`/`tsx` if you plan to run the TypeScript scripts under `scripts/` without compiling them first.
 
 ## Getting Started
 1. **Clone the Repository**:
@@ -25,6 +25,7 @@ This document provides guidance for developers contributing to or extending Obsi
 
 3. **Set Up Environment**:
    - Copy `.env.template` to `.env` and fill in your Supabase, Neo4j, Ollama, and OpenAI credentials.
+   - `make check-env` verifies the `.env` file and exports variables for downstream targets.
    - For local testing, start Supabase and Neo4j instances (e.g., via Docker):
      ```
      # Example for Supabase (adjust as needed)
@@ -49,20 +50,20 @@ This document provides guidance for developers contributing to or extending Obsi
    This generates `main.js`, `manifest.json`, and `styles.css` in the root for manual installation or releases.
 
 6. **Scripts and Utilities**:
-   - **Query Tables**: Use `scripts/query_tables.ts` to inspect Supabase data (run with `ts-node scripts/query_tables.ts`).
-   - **Release Utils**: `scripts/release-utils.sh` for automating version bumps and GitHub releases.
-   - **Makefile Targets**: Run `make init` to set up DB schemas, or `make test` for running tests.
+   - **Query Tables**: `scripts/query_tables.ts` is a TypeScript helper that exercises `SupabaseService`. Run it via `npx ts-node scripts/query_tables.ts` (or your preferred TS runner) after exporting the same environment variables the plugin expects. The repository does not ship with `ts-node`, so `npx` will prompt to install it if you have not already.
+   - **Release Utils**: `scripts/release-utils.sh` automates version bumps and GitHub releases (wraps `yarn build`, `yarn version`, and tagging logic).
+   - **Makefile Targets**: `make dev` runs the esbuild watcher, `make init` installs dependencies and provisions the Supabase schema, `make setup-db` replays `sql/setup.sql`, `make test-db` validates credentials, and `make reset` re-runs the SQL migrations after a wipe. There is no `make test`; use the Yarn scripts directly for linting or Jest.
 
 ## Code Style and Conventions
 - **Language**: TypeScript with strict typing (see `tsconfig.json`).
-- **Formatting**: Use Prettier (integrated via `yarn format`).
-- **Linting**: ESLint rules enforced; run `yarn lint` before commits.
+- **Linting**: ESLint (`yarn lint`) enforces formatting and best practices; there is no repository-wide Prettier config, so rely on ESLint autofix or your editor settings.
+- **Type-Checking**: Run `tsc --noEmit` if you need a stricter compile-time pass beyond what esbuild surfaces.
 - **Commits**: Follow conventional commits (e.g., `feat: add new mode toggle`, `fix: handle deletion edge case`). Keep changes atomic.
 - **Comments**: Add JSDoc for public methods; inline comments for non-obvious logic.
 - **Modularity**: Place DB logic in `services/`, helpers in `utils/`, types in `models/`.
 
 ## Testing
-Obsidian-RAG uses Jest for unit and integration tests. Tests are located in `services/__tests__/` and `tests/`.
+Obsidian-RAG uses Jest for unit and integration tests. Most suites live in `tests/` (e.g., `tests/QueueService.edgeCases.test.ts`, `tests/OfflineQueueManager.test.ts`) while targeted service tests such as `services/__tests__/SupabaseService.test.ts` exercise specific integrations.
 
 - **Run Tests**:
   ```
@@ -71,25 +72,24 @@ Obsidian-RAG uses Jest for unit and integration tests. Tests are located in `ser
   Or watch mode: `yarn test:watch`.
 
 - **Writing Tests**:
-  - Focus on edge cases: offline syncs, retries, exclusions, and mode-specific behaviors.
+  - Focus on edge cases: offline syncs, retries, exclusions, Mode Preview reporting, and hybrid-mode fallbacks.
   - Use mocks: Jest mocks for Obsidian APIs, HTTP requests (e.g., Ollama), and DB clients.
-  - Example from `services/__tests__/QueueService.test.ts`:
+  - Example excerpt from `tests/QueueService.delete.test.ts`:
     ```typescript
-    import { QueueService } from '../QueueService';
-    import { ProcessingTask } from '../../models/ProcessingTask';
+    import { SupabaseService } from '../services/SupabaseService';
 
-    describe('QueueService', () => {
-      let queueService: QueueService;
+    it('removes chunks for delete tasks', async () => {
+      const supabaseService = {
+        deleteDocumentChunks: jest.fn().mockResolvedValue(undefined),
+        updateFileStatusOnDelete: jest.fn().mockResolvedValue(undefined),
+      } as Partial<SupabaseService>;
+      const { queueService } = createQueueService(supabaseService);
+      const task = createTask();
 
-      beforeEach(() => {
-        queueService = new QueueService();
-      });
+      await (queueService as any).processDeleteTask(task);
 
-      it('should enqueue and process tasks', async () => {
-        const task: ProcessingTask = { /* mock task */ };
-        queueService.enqueue(task);
-        // Assert processing logic
-      });
+      expect(supabaseService.deleteDocumentChunks).toHaveBeenCalledTimes(1);
+      expect(supabaseService.updateFileStatusOnDelete).toHaveBeenCalledWith('Test.md');
     });
     ```
 
@@ -104,6 +104,7 @@ We welcome contributions! Follow these steps:
 
 - **Bug Reports**: Open issues with reproduction steps, logs, and environment details.
 - **Feature Ideas**: Discuss in issues before coding; tie to use cases like n8n integrations.
+- **Documentation Updates**: When the code introduces new services (e.g., ModePreviewManager or HybridRAGService), update `ARCHITECTURE.md` alongside README/CHANGELOG entries.
 
 ## Debugging Tips
 - **Logs**: Enable verbose logging in settings; check Obsidian console (Ctrl+Shift+I).
