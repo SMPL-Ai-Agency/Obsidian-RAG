@@ -4,6 +4,7 @@ import ObsidianRAGPlugin from '../main';
 import { ObsidianRAGSettings, generateVaultId, isVaultInitialized, getUserExclusions, SYSTEM_EXCLUSIONS } from './Settings';
 import { SupabaseService } from '../services/SupabaseService';
 import { describeSyncMode } from '../services/ModePreviewManager';
+import { CustomEntityRule } from '../models/Entity';
 
 const CASH_APP_QR_DATA_URI =
         'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPAAAADwAQAAAAAWLtQ/AAACI0lEQVR4nO2ZQY6bQBBFX7kt4SgLuEH7BjlCkxPkDDlHpDHkRrlB+xjZwTKLkZodloCfBc5k51gzUtIorhXwFvxWV/UvChO3YneTPvAD/xcYSRHAlMCNXgulGgAnKWPlOwBJauYK5rJjx1CbJGUh7W1YZjUu+UZjXy9FgtmsyULaXbg8N/PBt1DG3KS9Cc+VX9PrUv31d78amxRxqW/cYLWNQ43TWuP/XNrbsJlZM1ewx8e5TMjMLAtpN0IvkcCpCxS/H2V/5N4ISXEpUmiVvJwUTZKmUk3mC0NStBFOUgdFd7XDdRk5K78DBx0IZhW44ch8gNPFn7dQJZEihcWpO4GPFIqQfzLdg5dLdd4xHNHYn2wcalN/ZJ+DtBux9oplfAJwI0FKmDZfJXsAW4ZPH93zh25+L3ZLqXb/TPuvpd3jJRSKT04dTl0wpbC45DdeJauXUEabrjcaAZd8k3muIUkLpTQBFB1AaJU4Za78Dnw29fVXAA1HKBIyr9y9ZAcEO8AT+MYOPtpQnRfXH5kykPZ6vBbGtdFqdD2RodxEKxmAsMxmv76ogiZ6y9wF7zPJ60CFQlogtBObOLiiJLWSGqkLQNCE30Iy3YrVS9ZdkJPiryrZjkm61Nt86OsdhAX6jc+49i9Xc+U/n+jh4r81DKHbT1krX+cO14GKuISow1DbVHbttr1kbYIB+1L5xorvx+Xdj087gMy3xB5/eh74gf+AfwLsyHJA2zVb7wAAAABJRU5ErkJggg==';
@@ -12,6 +13,7 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
         plugin: ObsidianRAGPlugin;
         settings: ObsidianRAGSettings;
         private noticeDebounceTimers = new Map<string, number>();
+        private customRulesContainer: HTMLElement | null = null;
 
 	constructor(app: App, plugin: ObsidianRAGPlugin) {
 		super(app, plugin);
@@ -333,8 +335,90 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                         })
                         );
 
-		// Document Processing Settings Section
-		containerEl.createEl('h2', { text: 'Document Processing' });
+                containerEl.createEl('h2', { text: 'LLM & Entity Extraction' });
+
+                new Setting(containerEl)
+                        .setName('LLM model')
+                        .setDesc('Model name for Ollama/OpenAI when generating entities (defaults to llama3).')
+                        .addText(text =>
+                                text.setPlaceholder('llama3')
+                                        .setValue(this.plugin.settings.llmModel)
+                                        .onChange(async value => {
+                                                this.plugin.settings.llmModel = value.trim() || 'llama3';
+                                                await this.plugin.saveSettings();
+                                        })
+                        );
+
+                new Setting(containerEl)
+                        .setName('Advanced entity extraction')
+                        .setDesc('Use an LLM-driven pipeline to extract entities and relationships.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.plugin.settings.enableAdvancedEntities)
+                                        .onChange(async value => {
+                                                this.plugin.settings.enableAdvancedEntities = value;
+                                                await this.plugin.saveSettings();
+                                                this.display();
+                                        })
+                        );
+
+                const entityTypesSetting = new Setting(containerEl)
+                        .setName('Entity types')
+                        .setDesc('Comma-separated list of entity types to request from the LLM.')
+                        .addText(text => {
+                                const control = text
+                                        .setPlaceholder('person, organization, location')
+                                        .setValue((this.plugin.settings.entityTypes || []).join(', '))
+                                        .onChange(async value => {
+                                                this.plugin.settings.entityTypes = value
+                                                        .split(',')
+                                                        .map(v => v.trim())
+                                                        .filter(v => v.length > 0);
+                                                await this.plugin.saveSettings();
+                                        });
+                                control.setDisabled(!this.plugin.settings.enableAdvancedEntities);
+                                return control;
+                        });
+
+                new Setting(containerEl)
+                        .setName('LLM gleaning passes')
+                        .setDesc('Number of refinement rounds for entity extraction (1-5).')
+                        .addSlider(slider => {
+                                slider
+                                        .setLimits(1, 5, 1)
+                                        .setValue(this.plugin.settings.maxGleaningIterations ?? 2)
+                                        .setDynamicTooltip()
+                                        .onChange(async value => {
+                                                this.plugin.settings.maxGleaningIterations = value;
+                                                await this.plugin.saveSettings();
+                                        });
+                                slider.setDisabled(!this.plugin.settings.enableAdvancedEntities);
+                        });
+
+                const customRulesSetting = new Setting(containerEl)
+                        .setName('Custom entity rules')
+                        .setDesc('Optional regex hints to force specific entity matches before LLM extraction.')
+                        .addButton(button =>
+                                button
+                                        .setButtonText('Add rule')
+                                        .setDisabled(!this.plugin.settings.enableAdvancedEntities)
+                                        .onClick(() => {
+                                                const modal = new CustomEntityRuleModal(this.app, async (rule) => {
+                                                        this.plugin.settings.customEntityRules.push(rule);
+                                                        await this.plugin.saveSettings();
+                                                        if (this.customRulesContainer) {
+                                                                this.renderCustomEntityRules(this.customRulesContainer);
+                                                        }
+                                                });
+                                                modal.open();
+                                        })
+                        );
+                customRulesSetting.controlEl.addClass('obsidian-rag-entity-rules__actions');
+                this.customRulesContainer = containerEl.createDiv('obsidian-rag-entity-rules');
+                this.renderCustomEntityRules(this.customRulesContainer);
+
+                // Document Processing Settings Section
+                containerEl.createEl('h2', { text: 'Document Processing' });
 		new Setting(containerEl)
 			.setName('Chunk Size')
 			.setDesc('Maximum size of text chunks (in characters).')
@@ -688,6 +772,94 @@ supportText.createEl('p', { text: 'Cash App: $ObsidianRAG' });
                         this.noticeDebounceTimers.delete(key);
                 }, delay);
                 this.noticeDebounceTimers.set(key, timeoutId);
+        }
+
+        private renderCustomEntityRules(container: HTMLElement): void {
+                if (!container) return;
+                container.empty();
+                const enabled = this.plugin.settings.enableAdvancedEntities;
+                container.toggleClass('is-disabled', !enabled);
+                const rules = this.plugin.settings.customEntityRules || [];
+                if (rules.length === 0) {
+                        container.createEl('p', {
+                                text: enabled
+                                        ? 'No custom entity rules defined yet.'
+                                        : 'Enable advanced entity extraction to configure rules.',
+                        });
+                        return;
+                }
+                rules.forEach((rule, index) => {
+                        const row = container.createDiv('obsidian-rag-entity-rule');
+                        row.createEl('code', { text: rule.pattern });
+                        const summary = row.createDiv('obsidian-rag-entity-rule__summary');
+                        summary.createSpan({ text: ` → ${rule.type}` });
+                        if (rule.flags) {
+                                summary.createSpan({ text: ` (${rule.flags})`, cls: 'obsidian-rag-entity-rule__flags' });
+                        }
+                        const removeButton = row.createEl('button', { text: 'Remove', cls: 'mod-warning' });
+                        removeButton.disabled = !enabled;
+                        removeButton.onclick = async () => {
+                                this.plugin.settings.customEntityRules.splice(index, 1);
+                                await this.plugin.saveSettings();
+                                this.renderCustomEntityRules(container);
+                        };
+                });
+        }
+}
+
+class CustomEntityRuleModal extends Modal {
+        private pattern: string = '';
+        private type: string = '';
+        private flags: string = 'g';
+
+        constructor(app: App, private readonly onSubmit: (rule: CustomEntityRule) => void) {
+                        super(app);
+        }
+
+        onOpen(): void {
+                const { contentEl } = this;
+                contentEl.empty();
+                contentEl.createEl('h3', { text: 'Add custom entity rule' });
+                new Setting(contentEl)
+                        .setName('Pattern')
+                        .setDesc('Regular expression (without surrounding slashes).')
+                        .addText(text =>
+                                text.setPlaceholder('^Project (.*)')
+                                        .onChange(value => (this.pattern = value))
+                        );
+                new Setting(contentEl)
+                        .setName('Type')
+                        .setDesc('Type label to assign when this regex matches.')
+                        .addText(text =>
+                                text.setPlaceholder('project')
+                                        .onChange(value => (this.type = value))
+                        );
+                new Setting(contentEl)
+                        .setName('Flags')
+                        .setDesc('Optional regex flags (default: g)')
+                        .addText(text =>
+                                text.setPlaceholder('g')
+                                        .setValue(this.flags)
+                                        .onChange(value => (this.flags = value || 'g'))
+                        );
+
+                const buttonBar = contentEl.createDiv({ cls: 'modal-button-bar' });
+                buttonBar.createEl('button', { text: 'Cancel' }).onclick = () => this.close();
+                const saveButton = buttonBar.createEl('button', { text: 'Add rule', cls: 'mod-cta' });
+                saveButton.onclick = () => this.submit();
+        }
+
+        onClose(): void {
+                this.contentEl.empty();
+        }
+
+        private submit(): void {
+                if (!this.pattern || !this.type) {
+                        new Notice('Pattern and type are required.');
+                        return;
+                }
+                this.onSubmit({ pattern: this.pattern, type: this.type, flags: this.flags || 'g' });
+                this.close();
         }
 }
 

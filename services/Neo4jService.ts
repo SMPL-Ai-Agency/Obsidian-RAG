@@ -2,6 +2,8 @@ import neo4j, { Driver, Session } from 'neo4j-driver';
 import { DocumentChunk, DocumentMetadata } from '../models/DocumentChunk';
 import { ObsidianRAGSettings, Neo4jSettings } from '../settings/Settings';
 import { EntityExtractionResult } from './EntityExtractor';
+import { Entity as AdvancedEntity } from '../models/Entity';
+import { Relationship as AdvancedRelationship } from '../models/Relationship';
 
 export class Neo4jService {
         private static instance: Neo4jService | null = null;
@@ -196,5 +198,53 @@ DETACH DELETE doc`,
 
         public async close(): Promise<void> {
                 await this.driver?.close();
+        }
+
+        public async upsertAdvancedEntities(
+                notePath: string,
+                entities: AdvancedEntity[],
+                relationships: AdvancedRelationship[]
+        ): Promise<void> {
+                if (!entities.length && !relationships.length) {
+                        return;
+                }
+                const session = this.getSession();
+                try {
+                        await session.executeWrite(async tx => {
+                                await tx.run(
+                                        `MERGE (doc:Document {project_name: $projectName, path: $path})
+SET doc.updated_at = datetime()`,
+                                        { projectName: this.projectName, path: notePath }
+                                );
+                                if (entities.length) {
+                                        await tx.run(
+                                                `UNWIND $entities AS entity
+MERGE (e:Entity {project_name: $projectName, name: entity.name})
+SET e.type = entity.type,
+    e.description = entity.description,
+    e.updated_at = datetime()
+WITH e
+MATCH (doc:Document {project_name: $projectName, path: $path})
+MERGE (doc)-[r:MENTIONS]->(e)
+SET r.last_seen = datetime()`,
+                                                { projectName: this.projectName, path: notePath, entities }
+                                        );
+                                }
+                                if (relationships.length) {
+                                        await tx.run(
+                                                `UNWIND $relationships AS rel
+MATCH (src:Entity {project_name: $projectName, name: rel.src})
+MATCH (tgt:Entity {project_name: $projectName, name: rel.tgt})
+MERGE (src)-[r:RELATES_TO {project_name: $projectName, description: rel.description}]->(tgt)
+SET r.keywords = rel.keywords,
+    r.weight = rel.weight,
+    r.updated_at = datetime()`,
+                                                { projectName: this.projectName, relationships }
+                                        );
+                                }
+                        });
+                } finally {
+                        await session.close();
+                }
         }
 }

@@ -12,6 +12,7 @@ Before you begin, ensure you have:
 - Access to an [Ollama](https://ollama.com/) server (local or remote)
 - *(Optional)* An [OpenAI](https://platform.openai.com/) API key for fallback embeddings
 - *(Optional)* A [Neo4j 5.x](https://neo4j.com/) instance (Desktop, Docker, or Aura) if you want graph sync
+- *(Optional)* A generative Ollama model such as `llama3` (run `ollama pull llama3`) if you plan to enable advanced entity extraction
 - Node.js **18 or newer** if you plan to run the Makefile or developer tooling (the repo will block older runtimes)
 
 ### Installation Steps
@@ -58,7 +59,11 @@ Before you begin, ensure you have:
      - Confirm the Ollama server URL and model (defaults to `http://localhost:11434` and `nomic-embed-text`)
      - Enable or disable Ollama usage as needed
      - (Optional) Provide an OpenAI API key to enable fallback embedding generation
+   - Configure the **LLM & Entity Extraction** section (optional):
+     - Set the LLM model used for prompts (e.g., `llama3`)
+     - Toggle advanced extraction, adjust entity types, and add regex-based custom rules as needed
    - Click "Initialize Database" to create the required tables
+     - This includes the new `entities` table used for vectorized entity storage; if your Supabase instance blocks custom RPCs, run the SQL snippet from `services/SupabaseService.ts#createEntitiesTable` manually.
 
 4. **Trigger & Verify Sync**
    - The plugin automatically watches your vault and queues changes for ingestion.

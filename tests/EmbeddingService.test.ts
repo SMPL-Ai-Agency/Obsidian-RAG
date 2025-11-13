@@ -43,7 +43,7 @@ describe('EmbeddingService provider selection', () => {
                         ...overrides,
                         ollama: { ...baseSettings.ollama, ...(overrides?.ollama ?? {}) },
                         openai: { ...baseSettings.openai, ...(overrides?.openai ?? {}) },
-                }, errorHandler);
+                }, errorHandler, 'llama3');
         };
 
         it('falls back to OpenAI when Ollama embedding fails and fallback is enabled', async () => {
