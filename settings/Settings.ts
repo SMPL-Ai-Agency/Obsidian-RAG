@@ -104,6 +104,18 @@ export interface Neo4jSettings {
 
 export type SyncMode = 'supabase' | 'neo4j' | 'hybrid';
 
+export type HybridExecutionOrder = 'vector-first' | 'graph-first' | 'parallel';
+
+export interface HybridStrategySettings {
+        executionOrder: HybridExecutionOrder;
+        requireDualWrites: boolean;
+}
+
+export const DEFAULT_HYBRID_STRATEGY: HybridStrategySettings = {
+        executionOrder: 'vector-first',
+        requireDualWrites: true,
+};
+
 /**
  * Processing queue settings
  */
@@ -144,6 +156,7 @@ export interface SyncSettings {
         timeout: number;                // Timeout for sync operations (ms)
         requireSync: boolean;           // Whether sync is required before startup
         mode: SyncMode;                 // Determines whether Supabase, Neo4j, or both are used
+        hybridStrategy: HybridStrategySettings; // Defines execution preferences when both backends are enabled
         // New cross-device settings
         deviceId: string;               // Unique identifier for current device
         deviceName: string;             // User-configurable device name
@@ -318,6 +331,7 @@ export const DEFAULT_SETTINGS: ObsidianRAGSettings = {
                 timeout: 40000,
                 requireSync: true,
                 mode: 'supabase',
+                hybridStrategy: { ...DEFAULT_HYBRID_STRATEGY },
                 deviceId: generateDeviceId(),
                 deviceName: `Device-${Math.floor(Math.random() * 1000)}`,
                 knownDevices: [],

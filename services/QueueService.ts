@@ -15,7 +15,8 @@ import { SupabaseService } from './SupabaseService';
 import { EmbeddingService } from './EmbeddingService';
 import { Neo4jService } from './Neo4jService';
 import { EntityExtractor } from './EntityExtractor';
-import { DEFAULT_CHUNKING_OPTIONS } from '../settings/Settings';
+import { DEFAULT_CHUNKING_OPTIONS, DEFAULT_HYBRID_STRATEGY, HybridStrategySettings, SyncMode } from '../settings/Settings';
+import { HybridRAGService } from './HybridRAGService';
 import { EventEmitter } from './EventEmitter';
 
 interface QueueIntegrationOptions {
@@ -23,6 +24,8 @@ interface QueueIntegrationOptions {
         graphSyncEnabled?: boolean;
         neo4jService?: Neo4jService | null;
         entityExtractor?: EntityExtractor | null;
+        hybridStrategy?: HybridStrategySettings;
+        syncMode?: SyncMode;
 }
 
 export class QueueService {
@@ -45,6 +48,8 @@ export class QueueService {
         private graphSyncEnabled: boolean;
         private neo4jService: Neo4jService | null;
         private entityExtractor: EntityExtractor | null;
+        private hybridRAGService: HybridRAGService;
+        private syncMode: SyncMode;
 
         constructor(
                 private maxConcurrent: number,
@@ -81,6 +86,9 @@ export class QueueService {
                 this.graphSyncEnabled = integrationOptions.graphSyncEnabled ?? false;
                 this.neo4jService = integrationOptions.neo4jService ?? null;
                 this.entityExtractor = integrationOptions.entityExtractor ?? null;
+                const strategy = integrationOptions.hybridStrategy || DEFAULT_HYBRID_STRATEGY;
+                this.hybridRAGService = new HybridRAGService(strategy);
+                this.syncMode = integrationOptions.syncMode || 'supabase';
         }
 
 	public start(): void {
@@ -99,15 +107,15 @@ export class QueueService {
 
 	public stop(): void {
 		this.isStopped = true;
-                if (this.pendingBackoffTimer) {
-                        clearTimeout(this.pendingBackoffTimer);
-                        this.pendingBackoffTimer = null;
-                }
-                this.eventEmitter.emit('queue-status', {
-                        queueSize: this.queue.length,
-                        pendingChanges: 0,
-                        processingCount: this.processingQueue.length,
-                        status: 'paused'
+		if (this.pendingBackoffTimer) {
+			clearTimeout(this.pendingBackoffTimer);
+			this.pendingBackoffTimer = null;
+		}
+		this.eventEmitter.emit('queue-status', {
+			queueSize: this.queue.length,
+			pendingChanges: 0,
+			processingCount: this.processingQueue.length,
+			status: 'paused'
 		});
 	}
 
@@ -368,80 +376,90 @@ export class QueueService {
                                 chunkSizes: chunks.map(c => c.content.length),
                                 chunkingTime: timings.chunkingComplete - timings.readComplete
                         });
-                        const enhancedChunks = chunks.map(chunk => ({
-                                ...chunk,
-                                metadata: {
-                                        ...chunk.metadata,
-                                        aliases: chunk.metadata.aliases || [],
-                                        links: chunk.metadata.links || [],
-                                        tags: chunk.metadata.tags || []
-                                }
-                        }));
-                        if (requiresVectors && this.embeddingService && this.supabaseService) {
-                                this.notifyProgress(task.id, 40, 'Generating embeddings');
-                                for (let i = 0; i < enhancedChunks.length; i++) {
-                                        const embedProgress = Math.floor(40 + (i / enhancedChunks.length) * 30);
-                                        this.notifyProgress(
-                                                task.id,
-                                                embedProgress,
-                                                `Generating embedding ${i + 1}/${enhancedChunks.length}`
-                                        );
-                                        const response = await this.embeddingService.createEmbeddings([enhancedChunks[i].content]);
-                                        if (response.length > 0 && response[0].data.length > 0) {
-                                                enhancedChunks[i].embedding = response[0].data[0].embedding;
-                                                enhancedChunks[i].vectorized_at = new Date().toISOString();
-                                                console.log(`Generated embedding for chunk ${i + 1}/${enhancedChunks.length}`);
-                                        } else {
-                                                throw new Error(`Failed to generate embedding for chunk ${i + 1}`);
-                                        }
-                                }
-                                timings.embeddingComplete = Date.now();
-                                this.notifyProgress(task.id, 70, 'Saving to database');
-                                let saveAttempts = 0;
-                                const maxSaveAttempts = 3;
-                                let savedSuccessfully = false;
-                                while (!savedSuccessfully && saveAttempts < maxSaveAttempts) {
-                                        try {
-                                                await this.supabaseService.upsertChunks(enhancedChunks);
-                                                savedSuccessfully = true;
-                                        } catch (saveError) {
-                                                saveAttempts++;
-                                                console.error(
-                                                        `Error saving chunks (attempt ${saveAttempts}/${maxSaveAttempts}):`,
-                                                        saveError
-                                                );
-                                                if (saveAttempts >= maxSaveAttempts) throw saveError;
-                                                const backoffTime = Math.pow(2, saveAttempts) * 1000;
-                                                this.notifyProgress(task.id, 70, `Retrying database save in ${backoffTime / 1000}s`);
-                                                await new Promise(resolve => setTimeout(resolve, backoffTime));
-                                        }
-                                }
-                                timings.saveComplete = Date.now();
-                                console.log('Chunks saved to database:', {
-                                        numberOfChunks: enhancedChunks.length,
-                                        fileId: task.id,
-                                        timings: {
-                                                total: timings.saveComplete - timings.start,
-                                                read: timings.readComplete - timings.start,
-                                                chunking: timings.chunkingComplete - timings.readComplete,
-                                                embedding: timings.embeddingComplete - timings.chunkingComplete,
-                                                save: timings.saveComplete - timings.embeddingComplete
-                                        }
-                                });
-                                await this.supabaseService.updateFileVectorizationStatus(task.metadata, 'vectorized');
-                        } else {
-                                timings.embeddingComplete = timings.chunkingComplete;
-                                timings.saveComplete = timings.chunkingComplete;
-                        }
-                        if (requiresGraph && this.neo4jService) {
-                                this.notifyProgress(task.id, requiresVectors ? 85 : 70, 'Updating knowledge graph');
-                                const extraction = this.entityExtractor
-                                        ? await this.entityExtractor.extractFromDocument(content, task.metadata)
-                                        : null;
-                                await this.neo4jService.upsertDocumentGraph(task.metadata, enhancedChunks, extraction);
-                                timings.saveComplete = Date.now();
-                        }
-                        this.notifyProgress(task.id, 100, 'Processing completed');
+			const enhancedChunks = chunks.map(chunk => ({
+				...chunk,
+				metadata: {
+					...chunk.metadata,
+					aliases: chunk.metadata.aliases || [],
+					links: chunk.metadata.links || [],
+					tags: chunk.metadata.tags || []
+				}
+			}));
+			const vectorStage = requiresVectors && this.embeddingService && this.supabaseService
+				? async () => {
+					this.notifyProgress(task.id, 40, 'Generating embeddings');
+					for (let i = 0; i < enhancedChunks.length; i++) {
+						const embedProgress = Math.floor(40 + (i / enhancedChunks.length) * 30);
+						this.notifyProgress(
+							task.id,
+							embedProgress,
+							`Generating embedding ${i + 1}/${enhancedChunks.length}`
+						);
+						const response = await this.embeddingService!.createEmbeddings([enhancedChunks[i].content]);
+						if (response.length > 0 && response[0].data.length > 0) {
+							enhancedChunks[i].embedding = response[0].data[0].embedding;
+							enhancedChunks[i].vectorized_at = new Date().toISOString();
+							console.log(`Generated embedding for chunk ${i + 1}/${enhancedChunks.length}`);
+						} else {
+							throw new Error(`Failed to generate embedding for chunk ${i + 1}`);
+						}
+					}
+					timings.embeddingComplete = Date.now();
+					this.notifyProgress(task.id, 70, 'Saving to database');
+					let saveAttempts = 0;
+					const maxSaveAttempts = 3;
+					let savedSuccessfully = false;
+					while (!savedSuccessfully && saveAttempts < maxSaveAttempts) {
+						try {
+							await this.supabaseService!.upsertChunks(enhancedChunks);
+							savedSuccessfully = true;
+						} catch (saveError) {
+							saveAttempts++;
+							console.error(
+								`Error saving chunks (attempt ${saveAttempts}/${maxSaveAttempts}):`,
+								saveError
+							);
+							if (saveAttempts >= maxSaveAttempts) throw saveError;
+							const backoffTime = Math.pow(2, saveAttempts) * 1000;
+							this.notifyProgress(task.id, 70, `Retrying database save in ${backoffTime / 1000}s`);
+							await new Promise(resolve => setTimeout(resolve, backoffTime));
+						}
+					}
+					timings.saveComplete = Date.now();
+					console.log('Chunks saved to database:', {
+						numberOfChunks: enhancedChunks.length,
+						fileId: task.id,
+						timings: {
+							total: timings.saveComplete - timings.start,
+							read: timings.readComplete - timings.start,
+							chunking: timings.chunkingComplete - timings.readComplete,
+							embedding: timings.embeddingComplete - timings.chunkingComplete,
+							save: timings.saveComplete - timings.embeddingComplete
+						}
+					});
+					await this.supabaseService!.updateFileVectorizationStatus(task.metadata, 'vectorized');
+				}
+				: undefined;
+			const graphStage = requiresGraph && this.neo4jService
+				? async () => {
+					this.notifyProgress(task.id, requiresVectors ? 85 : 70, 'Updating knowledge graph');
+					const extraction = this.entityExtractor
+						? await this.entityExtractor.extractFromDocument(content, task.metadata)
+						: null;
+					await this.neo4jService!.upsertDocumentGraph(task.metadata, enhancedChunks, extraction);
+					timings.saveComplete = Date.now();
+				}
+				: undefined;
+			if (!vectorStage) {
+				timings.embeddingComplete = timings.chunkingComplete;
+				timings.saveComplete = timings.chunkingComplete;
+			}
+			await this.hybridRAGService.execute({
+				mode: this.syncMode,
+				vectorStage,
+				graphStage
+			});
+			this.notifyProgress(task.id, 100, 'Processing completed');
                 } catch (error) {
 			console.error('Error in processCreateUpdateTask:', { error, taskId: task.id, metadata: task.metadata });
 			throw error;
@@ -698,3 +716,8 @@ export class QueueService {
 		return this.eventEmitter.on(eventName as any, callback);
 	}
 }
+
+	public updateHybridPreferences(strategy: HybridStrategySettings, mode: SyncMode): void {
+		this.hybridRAGService.updateStrategy(strategy);
+		this.syncMode = mode;
+	}

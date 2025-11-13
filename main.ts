@@ -15,15 +15,16 @@ import { SyncDetectionManager } from './services/SyncDetectionManager';
 import { Neo4jService } from './services/Neo4jService';
 import { EntityExtractor } from './services/EntityExtractor';
 import {
-        ObsidianRAGSettings,
-        DEFAULT_SETTINGS,
-        DEFAULT_OPENAI_SETTINGS,
-        DEFAULT_OLLAMA_SETTINGS,
-        DEFAULT_NEO4J_SETTINGS,
-        isVaultInitialized,
-        generateVaultId,
-        getAllExclusions,
-        SYSTEM_EXCLUSIONS
+	ObsidianRAGSettings,
+	DEFAULT_SETTINGS,
+	DEFAULT_OPENAI_SETTINGS,
+	DEFAULT_OLLAMA_SETTINGS,
+	DEFAULT_NEO4J_SETTINGS,
+	DEFAULT_HYBRID_STRATEGY,
+	isVaultInitialized,
+	generateVaultId,
+	getAllExclusions,
+	SYSTEM_EXCLUSIONS
 } from './settings/Settings';
 import { ProcessingTask, TaskType, TaskStatus } from './models/ProcessingTask';
 
@@ -325,23 +326,33 @@ export default class ObsidianRAGPlugin extends Plugin {
 		if (!this.settings.exclusions.systemExcludedFilePrefixes) this.settings.exclusions.systemExcludedFilePrefixes = [...SYSTEM_EXCLUSIONS.filePrefixes];
                 if (!this.settings.exclusions.systemExcludedFiles) this.settings.exclusions.systemExcludedFiles = [...SYSTEM_EXCLUSIONS.files];
 
-                if (!this.settings.sync.mode) {
-                        this.settings.sync.mode = 'supabase';
-                }
-	}
+		if (!this.settings.sync.mode) {
+			this.settings.sync.mode = 'supabase';
+		}
 
-        async saveSettings() {
-                this.settings.openai = { ...this.settings.embeddings.openai };
-                await this.saveData(this.settings);
-                // Update service settings after saving
-                this.notificationManager?.updateSettings(this.settings.enableNotifications, this.settings.enableProgressBar);
-                this.errorHandler?.updateSettings(this.settings.debug);
-                this.embeddingService?.updateSettings(this.settings.embeddings);
-                this.entityExtractor?.updateSettings(this.settings.embeddings, this.settings.neo4j.projectName);
-                if (isVaultInitialized(this.settings)) await this.initializeServices();
-        }
+		if (!this.settings.sync.hybridStrategy) {
+			this.settings.sync.hybridStrategy = { ...DEFAULT_HYBRID_STRATEGY };
+		} else {
+			this.settings.sync.hybridStrategy = {
+				...DEFAULT_HYBRID_STRATEGY,
+				...this.settings.sync.hybridStrategy
+			};
+		}
+}
 
-	private startPeriodicSyncChecks(): void {
+		async saveSettings() {
+			this.settings.openai = { ...this.settings.embeddings.openai };
+			await this.saveData(this.settings);
+			// Update service settings after saving
+			this.notificationManager?.updateSettings(this.settings.enableNotifications, this.settings.enableProgressBar);
+			this.errorHandler?.updateSettings(this.settings.debug);
+			this.embeddingService?.updateSettings(this.settings.embeddings);
+			this.entityExtractor?.updateSettings(this.settings.embeddings, this.settings.neo4j.projectName);
+			this.queueService?.updateHybridPreferences(this.settings.sync.hybridStrategy, this.settings.sync.mode);
+			if (isVaultInitialized(this.settings)) await this.initializeServices();
+		}
+
+		private startPeriodicSyncChecks(): void {
 		if (this.syncCheckInterval) clearInterval(this.syncCheckInterval);
 		this.syncCheckInterval = setInterval(async () => {
 			await this.performSyncCheck();
@@ -445,22 +456,24 @@ export default class ObsidianRAGPlugin extends Plugin {
                                 this.settings.enableProgressBar
                         );
 
-                        this.queueService = new QueueService(
-                                this.settings.queue.maxConcurrent,
-                                this.settings.queue.retryAttempts,
-                                this.supabaseService,
-                                this.embeddingService,
-                                this.errorHandler,
-                                notificationManager,
-                                this.app.vault,
-                                this.settings.chunking,
-                                {
-                                        vectorSyncEnabled: useSupabase,
-                                        graphSyncEnabled: useNeo4j,
-                                        neo4jService: this.neo4jService,
-                                        entityExtractor: this.entityExtractor,
-                                }
-                        );
+			this.queueService = new QueueService(
+				this.settings.queue.maxConcurrent,
+				this.settings.queue.retryAttempts,
+				this.supabaseService,
+				this.embeddingService,
+				this.errorHandler,
+				notificationManager,
+				this.app.vault,
+				this.settings.chunking,
+				{
+					vectorSyncEnabled: useSupabase,
+					graphSyncEnabled: useNeo4j,
+					neo4jService: this.neo4jService,
+					entityExtractor: this.entityExtractor,
+					hybridStrategy: this.settings.sync.hybridStrategy,
+					syncMode: this.settings.sync.mode,
+				}
+			);
                         await this.queueService.start();
                         console.log('[ObsidianRAG] Queue service initialized and started.');
 

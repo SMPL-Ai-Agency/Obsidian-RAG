@@ -106,21 +106,55 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 
                 // Sync Mode Section
                 containerEl.createEl('h2', { text: 'Sync Mode' });
-                new Setting(containerEl)
-                        .setName('Data Sync Mode')
-                        .setDesc('Choose which backend should be updated during sync operations.')
-                        .addDropdown(dropdown =>
-                                dropdown
-                                        .addOption('supabase', 'Supabase (Vector)')
-                                        .addOption('neo4j', 'Neo4j (Graph)')
-                                        .addOption('hybrid', 'Hybrid (Both)')
-                                        .setValue(this.settings.sync.mode || 'supabase')
-                                        .onChange(async value => {
-                                                this.settings.sync.mode = value as 'supabase' | 'neo4j' | 'hybrid';
-                                                await this.plugin.saveSettings();
-                                                new Notice('Sync mode updated.');
-                                        })
-                        );
+const hybridSettingsContainer = containerEl.createDiv('obsidian-rag-hybrid-settings');
+
+new Setting(containerEl)
+.setName('Data Sync Mode')
+.setDesc('Choose which backend should be updated during sync operations.')
+.addDropdown(dropdown =>
+dropdown
+.addOption('supabase', 'Supabase (Vector)')
+.addOption('neo4j', 'Neo4j (Graph)')
+.addOption('hybrid', 'Hybrid (Both)')
+.setValue(this.settings.sync.mode || 'supabase')
+.onChange(async value => {
+this.settings.sync.mode = value as 'supabase' | 'neo4j' | 'hybrid';
+await this.plugin.saveSettings();
+new Notice('Sync mode updated.');
+this.updateHybridSettingsVisibility(hybridSettingsContainer);
+})
+);
+
+new Setting(hybridSettingsContainer)
+.setName('Hybrid execution strategy')
+.setDesc('Control the order in which vector and graph updates run when hybrid mode is enabled.')
+.addDropdown(dropdown =>
+dropdown
+.addOption('vector-first', 'Vectors first')
+.addOption('graph-first', 'Graph first')
+.addOption('parallel', 'Run in parallel')
+.setValue(this.settings.sync.hybridStrategy.executionOrder)
+.onChange(async value => {
+this.settings.sync.hybridStrategy.executionOrder = value as 'vector-first' | 'graph-first' | 'parallel';
+await this.plugin.saveSettings();
+new Notice('Hybrid execution strategy updated.');
+})
+);
+
+new Setting(hybridSettingsContainer)
+.setName('Require dual writes in hybrid mode')
+.setDesc('When enabled, syncs will fail if either the vector store or graph database could not be updated.')
+.addToggle(toggle =>
+toggle
+.setValue(this.settings.sync.hybridStrategy.requireDualWrites)
+.onChange(async value => {
+this.settings.sync.hybridStrategy.requireDualWrites = value;
+await this.plugin.saveSettings();
+new Notice('Hybrid enforcement preference updated.');
+})
+);
+
+this.updateHybridSettingsVisibility(hybridSettingsContainer);
 
                 // Neo4j Settings Section
                 containerEl.createEl('h2', { text: 'Neo4j Configuration' });
@@ -613,4 +647,13 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
 			});
 		});
 	}
+
+		private updateHybridSettingsVisibility(container: HTMLElement): void {
+			if (!container) return;
+			if (this.settings.sync.mode === 'hybrid') {
+				container.removeClass('is-hidden');
+			} else {
+				container.addClass('is-hidden');
+			}
+		}
 }
