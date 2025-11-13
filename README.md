@@ -111,7 +111,7 @@ yarn dev
 ```
 
 ### Requirements
-- Node.js v16+  
+- Node.js v18+
 - Yarn  
 - Supabase (PostgreSQL + vector extension)  
 - Neo4j 5.x  
