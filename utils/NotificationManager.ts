@@ -11,6 +11,7 @@ export class NotificationManager {
 	private statusBarItem: HTMLElement;
 private enableNotifications: boolean;
 private enableProgressBar: boolean;
+private enableEntityPreview: boolean;
 private readonly app: App;
         private notificationQueue: string[] = [];
         private isProcessingQueue: boolean = false;
@@ -25,12 +26,14 @@ constructor(
 app: App,
 statusBarEl: HTMLElement,
 enableNotifications: boolean,
-enableProgressBar: boolean
+enableProgressBar: boolean,
+enableEntityPreview: boolean
 ) {
 this.app = app;
 this.statusBarItem = statusBarEl;
 this.enableNotifications = enableNotifications;
 this.enableProgressBar = enableProgressBar;
+this.enableEntityPreview = enableEntityPreview;
 this.initializeStatusBar();
 }
 
@@ -66,16 +69,19 @@ this.initializeStatusBar();
                 entities: { name: string; type?: string; importance?: number; summary?: string }[];
                 relationships?: { src: string; tgt: string; weight?: number; description?: string }[];
         }): void {
-                if (!this.enableProgressBar) return;
+                if (!this.enableEntityPreview) return;
                 if (!payload.entities?.length) {
                         this.clearEntityPreview();
                         return;
                 }
                 this.ensureEntityPreviewPanel();
-                if (!this.entityPreviewList || !this.entityPreviewMeta || !this.entityPreviewRelations) {
+                const list = this.entityPreviewList;
+                const meta = this.entityPreviewMeta;
+                const relations = this.entityPreviewRelations;
+                if (!list || !meta || !relations) {
                         return;
                 }
-this.entityPreviewMeta.textContent = `${payload.entities.length} entities • ${(payload.relationships?.length || 0)} links`;
+meta.textContent = `${payload.entities.length} entities • ${(payload.relationships?.length || 0)} links`;
 this.entityPreviewNotePath = payload.notePath;
 if (this.entityPreviewAction) {
 this.entityPreviewAction.disabled = !payload.notePath;
@@ -86,7 +92,7 @@ this.entityPreviewAction.setAttribute('aria-label', `Open ${payload.notePath}`);
 this.entityPreviewAction.removeAttribute('aria-label');
 }
 }
-                this.entityPreviewList.innerHTML = '';
+                list.innerHTML = '';
                 payload.entities.slice(0, 6).forEach(entity => {
                         const item = document.createElement('li');
                         item.addClass('obsidian-rag-entity-preview__entity');
@@ -108,16 +114,16 @@ this.entityPreviewAction.removeAttribute('aria-label');
                         if (importance.textContent) {
                                 item.appendChild(importance);
                         }
-                        this.entityPreviewList.appendChild(item);
+                        list.appendChild(item);
                 });
                 const relationshipsPreview = (payload.relationships || []).slice(0, 4);
                 if (relationshipsPreview.length) {
                         const relationshipText = relationshipsPreview
                                 .map(rel => `${rel.src} → ${rel.tgt}${typeof rel.weight === 'number' ? ` (${rel.weight.toFixed(2)})` : ''}`)
                                 .join(' · ');
-                        this.entityPreviewRelations.textContent = relationshipText;
+                        relations.textContent = relationshipText;
                 } else {
-                        this.entityPreviewRelations.textContent = '';
+                        relations.textContent = '';
                 }
         }
 
@@ -180,12 +186,16 @@ this.entityPreviewAction.removeAttribute('aria-label');
 	/**
 	 * Updates notification settings.
 	 */
-        updateSettings(enableNotifications: boolean, enableProgressBar: boolean): void {
+        updateSettings(enableNotifications: boolean, enableProgressBar: boolean, enableEntityPreview: boolean): void {
                 this.enableNotifications = enableNotifications;
                 this.enableProgressBar = enableProgressBar;
-                if (!enableProgressBar) {
-                        this.destroyEntityPreviewPanel();
+                this.enableEntityPreview = enableEntityPreview;
+                if (!enableProgressBar && this.fixedProgressBar?.container?.parentElement) {
+                        this.fixedProgressBar.container.parentElement.removeChild(this.fixedProgressBar.container);
                         this.fixedProgressBar = null;
+                }
+                if (!enableEntityPreview) {
+                        this.destroyEntityPreviewPanel();
                 }
         }
 
@@ -194,7 +204,11 @@ this.entityPreviewAction.removeAttribute('aria-label');
 	 */
         clear(): void {
                 this.notificationQueue = [];
-                this.clearEntityPreview();
+                if (this.enableEntityPreview) {
+                        this.clearEntityPreview();
+                } else {
+                        this.destroyEntityPreviewPanel();
+                }
         }
 
         clearEntityPreview(): void {
@@ -213,7 +227,7 @@ this.entityPreviewAction.removeAttribute('aria-label');
 }
 
 private ensureEntityPreviewPanel(): void {
-if (this.entityPreviewPanel) return;
+if (!this.enableEntityPreview || this.entityPreviewPanel) return;
 const panel = document.createElement('div');
 panel.addClass('obsidian-rag-entity-preview');
 const meta = document.createElement('div');

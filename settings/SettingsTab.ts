@@ -625,11 +625,11 @@ new Setting(containerEl)
 						new Notice('Auto sync updated.');
 					})
 			);
-		new Setting(containerEl)
-			.setName('Sync File Path')
-			.setDesc('The path for the dedicated sync file.')
-			.addText(text =>
-				text.setValue(this.settings.sync.syncFilePath)
+                new Setting(containerEl)
+                        .setName('Sync File Path')
+                        .setDesc('The path for the dedicated sync file.')
+                        .addText(text =>
+                                text.setValue(this.settings.sync.syncFilePath)
 					.onChange(async (value) => {
 						this.settings.sync.syncFilePath = value;
 						// Also update the system excluded files
@@ -647,8 +647,47 @@ new Setting(containerEl)
                                         })
                         );
 
-		// Debug Settings Section
-		containerEl.createEl('h2', { text: 'Debug Settings' });
+                // Notifications & UI Section
+                containerEl.createEl('h2', { text: 'Notifications & UI' });
+                new Setting(containerEl)
+                        .setName('Enable notifications')
+                        .setDesc('Show Obsidian notices for sync progress, completions, and errors.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.settings.enableNotifications)
+                                        .onChange(async (value) => {
+                                                this.settings.enableNotifications = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Notification preference updated.');
+                                        })
+                        );
+                new Setting(containerEl)
+                        .setName('Show progress bar')
+                        .setDesc('Display a fixed progress bar in the status bar while tasks run.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.settings.enableProgressBar)
+                                        .onChange(async (value) => {
+                                                this.settings.enableProgressBar = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Progress bar preference updated.');
+                                        })
+                        );
+                new Setting(containerEl)
+                        .setName('Show entity previews')
+                        .setDesc('Render detected entities and relationships in the status bar during graph syncs.')
+                        .addToggle(toggle =>
+                                toggle
+                                        .setValue(this.settings.enableEntityPreview)
+                                        .onChange(async (value) => {
+                                                this.settings.enableEntityPreview = value;
+                                                await this.plugin.saveSettings();
+                                                new Notice('Entity preview preference updated.');
+                                        })
+                        );
+
+                // Debug Settings Section
+                containerEl.createEl('h2', { text: 'Debug Settings' });
 		new Setting(containerEl)
 			.setName('Enable Debug Logs')
 			.setDesc('Enable detailed debug logs in the console.')

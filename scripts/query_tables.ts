@@ -67,6 +67,7 @@ async function queryTables() {
                 enableAutoSync: true,
                 enableNotifications: true,
                 enableProgressBar: true,
+                enableEntityPreview: true,
                 sync: {
                         syncFilePath: '.obsidian/plugins/obsidian-rag/sync.json',
                         backupInterval: 3600000,

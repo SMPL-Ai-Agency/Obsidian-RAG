@@ -226,9 +226,10 @@ embeddings: EmbeddingProviderSettings; // Embedding provider configuration
 	// Debug settings
 	debug: DebugSettings;        // Debugging and logging configuration
 	// Feature flags
-	enableAutoSync: boolean;      // Enable automatic synchronization
-	enableNotifications: boolean; // Show notifications for actions
-	enableProgressBar: boolean;   // Show a progress bar during tasks
+        enableAutoSync: boolean;      // Enable automatic synchronization
+        enableNotifications: boolean; // Show notifications for actions
+        enableProgressBar: boolean;   // Show a progress bar during tasks
+        enableEntityPreview: boolean; // Show entity preview panel during graph updates
 	// Sync settings
 	sync: SyncSettings;
 	// Initial sync settings
@@ -343,9 +344,10 @@ cache: { ...DEFAULT_EMBEDDING_CACHE_SETTINGS },
 		logLevel: 'info',
 		logToFile: false,
 	},
-	enableAutoSync: true,
-	enableNotifications: true,
-	enableProgressBar: true,
+        enableAutoSync: true,
+        enableNotifications: true,
+        enableProgressBar: true,
+        enableEntityPreview: true,
         sync: {
                 syncFilePath: '_obsidianragsync.md',
                 backupInterval: 3600000,  // 1 hour in milliseconds

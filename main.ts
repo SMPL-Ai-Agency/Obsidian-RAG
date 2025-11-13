@@ -293,7 +293,8 @@ this.notificationManager = new NotificationManager(
 this.app,
 this.addStatusBarItem(),
 this.settings?.enableNotifications ?? true,
-this.settings?.enableProgressBar ?? true
+this.settings?.enableProgressBar ?? true,
+this.settings?.enableEntityPreview ?? (this.settings?.enableProgressBar ?? true)
 );
 		this.statusManager?.setStatus(PluginStatus.INITIALIZING, { message: 'Core services initialized' });
 	}
@@ -301,6 +302,13 @@ this.settings?.enableProgressBar ?? true
         private async loadSettings() {
                 const storedSettings = await this.loadData();
                 this.settings = Object.assign({}, DEFAULT_SETTINGS, storedSettings);
+
+                if (typeof this.settings.enableEntityPreview === 'undefined') {
+                        this.settings.enableEntityPreview =
+                                typeof this.settings.enableProgressBar === 'boolean'
+                                        ? this.settings.enableProgressBar
+                                        : true;
+                }
 
                 if (!this.settings.neo4j) {
                         this.settings.neo4j = { ...DEFAULT_NEO4J_SETTINGS };
@@ -371,7 +379,11 @@ this.settings.embeddings.cache = {
 			this.settings.openai = { ...this.settings.embeddings.openai };
 			await this.saveData(this.settings);
 			// Update service settings after saving
-			this.notificationManager?.updateSettings(this.settings.enableNotifications, this.settings.enableProgressBar);
+                        this.notificationManager?.updateSettings(
+                                this.settings.enableNotifications,
+                                this.settings.enableProgressBar,
+                                this.settings.enableEntityPreview
+                        );
 			this.errorHandler?.updateSettings(this.settings.debug);
 			this.embeddingService?.updateSettings(this.settings.embeddings);
 			this.entityExtractor?.updateSettings(this.settings.embeddings, this.settings.neo4j.projectName);
@@ -501,7 +513,8 @@ const notificationManager = this.notificationManager || new NotificationManager(
 this.app,
 this.addStatusBarItem(),
 this.settings.enableNotifications,
-this.settings.enableProgressBar
+this.settings.enableProgressBar,
+this.settings.enableEntityPreview
 );
 
 			this.queueService = new QueueService(
