@@ -59,6 +59,9 @@ export interface PendingOperation {
         oldPath?: string;     // For rename operations
         contentHash?: string; // For create/update operations
         lastModified?: number; // Last modified timestamp
+        errorCode?: string;   // Error identifier when logging failures
+        rolledBack?: boolean; // Indicates if a rollback succeeded
+        batchLimit?: number | null; // Batch limit applied during the failure
     };
     status: 'pending' | 'processing' | 'error';
     errorDetails?: string;    // Error information if status is 'error'

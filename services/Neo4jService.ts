@@ -250,10 +250,18 @@ DETACH DELETE doc`,
                         return await session.executeWrite(handler);
                 } catch (error) {
                         console.error(`[Neo4jService] ${context} failed`, error);
-                        throw new Error(`${context} failed: ${(error as Error).message}`);
+                        const enrichedError = new Error(`${context} failed: ${(error as Error).message}`);
+                        if ((error as { code?: string })?.code) {
+                                (enrichedError as { code?: string }).code = (error as { code?: string }).code;
+                        }
+                        throw enrichedError;
                 } finally {
                         await session.close();
                 }
+        }
+
+        public getBatchLimit(): number {
+                return this.effectiveBatchSize;
         }
 
         private async mergeDocumentShell(tx: ManagedTransaction, notePath: string): Promise<void> {

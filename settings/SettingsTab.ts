@@ -275,6 +275,20 @@ export class ObsidianRAGSettingsTab extends PluginSettingTab {
                                                 this.scheduleSettingNotice('neo4j-batch-size', `Neo4j batch size set to ${value}.`);
                                         })
                         );
+                new Setting(containerEl)
+                        .setName('Aura batch cap (neo4jBatchLimit)')
+                        .setDesc('Adjusts the neo4jBatchLimit JSON knob from the UI so you can mirror Aura write throttles without editing config files.')
+                        .addSlider(slider =>
+                                slider
+                                        .setLimits(25, 500, 25)
+                                        .setValue(this.settings.neo4j.neo4jBatchLimit ?? this.settings.neo4j.maxBatchSize ?? 500)
+                                        .setDynamicTooltip()
+                                        .onChange(async value => {
+                                                this.settings.neo4j.neo4jBatchLimit = value;
+                                                await this.plugin.saveSettings();
+                                                this.scheduleSettingNotice('neo4j-batch-cap', `Aura batch cap set to ${value}.`);
+                                        })
+                        );
 
                 // Embedding Provider Settings Section
                 containerEl.createEl('h2', { text: 'Embeddings' });

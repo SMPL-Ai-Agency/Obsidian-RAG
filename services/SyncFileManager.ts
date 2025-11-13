@@ -13,7 +13,8 @@ updateDatabaseStatus,
 updateDeviceSyncTime,
 trimSyncHistoryArrays,
 SyncConflict,
-ConnectionEvent
+ConnectionEvent,
+PendingOperation
 } from '../models/SyncModels';
 
 export class SyncFileManager {
@@ -533,25 +534,76 @@ export class SyncFileManager {
 	 * Updates the sync status for a given file in the sync file.
 	 * This method is used as a fallback when the database isn't available.
 	 */
-	async updateSyncStatus(filePath: string, status: string, additionalData: Record<string, any>): Promise<void> {
-		// Ensure we have the current sync data
-		if (!this.currentSyncData) {
-			await this.readSyncFile();
-		}
-		if (this.currentSyncData) {
-			// Assuming your sync file header contains a fileStatuses map
-			this.currentSyncData.header.fileStatuses = this.currentSyncData.header.fileStatuses || {};
-			this.currentSyncData.header.fileStatuses[filePath] = {
-				status,
-				lastModified: additionalData.lastModified,
-				hash: additionalData.hash,
-				updatedAt: Date.now()
-			};
-			await this.writeSyncFile(this.currentSyncData);
-		} else {
-			throw new Error("Sync file data unavailable for updateSyncStatus");
-		}
-	}
+        async updateSyncStatus(filePath: string, status: string, additionalData: Record<string, any>): Promise<void> {
+                // Ensure we have the current sync data
+                if (!this.currentSyncData) {
+                        await this.readSyncFile();
+                }
+                if (this.currentSyncData) {
+                        // Assuming your sync file header contains a fileStatuses map
+                        this.currentSyncData.header.fileStatuses = this.currentSyncData.header.fileStatuses || {};
+                        this.currentSyncData.header.fileStatuses[filePath] = {
+                                status,
+                                lastModified: additionalData.lastModified,
+                                hash: additionalData.hash,
+                                updatedAt: Date.now()
+                        };
+                        await this.writeSyncFile(this.currentSyncData);
+                } else {
+                        throw new Error("Sync file data unavailable for updateSyncStatus");
+                }
+        }
+
+        /**
+         * Records a hybrid sync failure so offline devices can inspect the retry context.
+         */
+        async recordHybridFailure(event: {
+                filePath: string;
+                operationType: PendingOperation['operationType'];
+                errorCode: string;
+                errorMessage: string;
+                rolledBack: boolean;
+                batchLimit?: number;
+        }): Promise<void> {
+                try {
+                        if (!this.currentSyncData) {
+                                await this.readSyncFile();
+                        }
+                        if (!this.currentSyncData) {
+                                return;
+                        }
+                        const operationId =
+                                typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                                        ? crypto.randomUUID()
+                                        : `hybrid-failure-${Date.now()}`;
+                        const operation: PendingOperation = {
+                                id: operationId,
+                                fileId: event.filePath,
+                                operationType: event.operationType,
+                                timestamp: Date.now(),
+                                deviceId: this.deviceId,
+                                metadata: {
+                                        errorCode: event.errorCode,
+                                        rolledBack: event.rolledBack,
+                                        batchLimit: typeof event.batchLimit === 'number' ? event.batchLimit : null,
+                                },
+                                status: 'error',
+                                errorDetails: event.errorMessage,
+                        };
+                        const updatedData: SyncFileData = {
+                                ...this.currentSyncData,
+                                pendingOperations: [...(this.currentSyncData.pendingOperations || []), operation],
+                        };
+                        const trimmedData = trimSyncHistoryArrays(updatedData);
+                        this.currentSyncData = trimmedData;
+                        await this.writeSyncFile(trimmedData);
+                } catch (error) {
+                        this.errorHandler.handleError(error, {
+                                context: 'SyncFileManager.recordHybridFailure',
+                                metadata: event,
+                        });
+                }
+        }
 
 	/**
 	 * Gets the sync status for a specific file path.

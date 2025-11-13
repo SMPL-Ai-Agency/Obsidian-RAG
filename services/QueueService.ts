@@ -1,5 +1,5 @@
 // src/services/QueueService.ts
-import { Vault, TFile } from 'obsidian';
+import { Vault, TFile, Notice } from 'obsidian';
 import { TextSplitter, ChunkingOptions } from '../utils/TextSplitter';
 import {
         ProcessingTask,
@@ -20,6 +20,9 @@ import { HybridRAGService } from './HybridRAGService';
 import { EventEmitter } from './EventEmitter';
 import { QueueEventTypes, QueueEventCallback } from '../models/QueueEvents';
 import { GraphBuilder } from './GraphBuilder';
+import { SyncFileManager } from './SyncFileManager';
+
+const HYBRID_GRAPH_ERROR_CODE = 'NEO4J_HYBRID_WRITE_FAILED';
 
 interface QueueIntegrationOptions {
         vectorSyncEnabled?: boolean;
@@ -29,6 +32,7 @@ interface QueueIntegrationOptions {
         hybridStrategy?: HybridStrategySettings;
         syncMode?: SyncMode;
         graphBuilder?: GraphBuilder | null;
+        syncFileManager?: SyncFileManager | null;
 }
 
 export class QueueService {
@@ -54,6 +58,7 @@ export class QueueService {
         private hybridRAGService: HybridRAGService;
         private syncMode: SyncMode;
         private graphBuilder: GraphBuilder | null;
+        private syncFileManager: SyncFileManager | null;
 
         constructor(
                 private maxConcurrent: number,
@@ -91,6 +96,7 @@ export class QueueService {
                 this.neo4jService = integrationOptions.neo4jService ?? null;
                 this.entityExtractor = integrationOptions.entityExtractor ?? null;
                 this.graphBuilder = integrationOptions.graphBuilder ?? null;
+                this.syncFileManager = integrationOptions.syncFileManager ?? null;
                 const strategy = integrationOptions.hybridStrategy || DEFAULT_HYBRID_STRATEGY;
                 this.hybridRAGService = new HybridRAGService(strategy);
                 this.syncMode = integrationOptions.syncMode || 'supabase';
@@ -338,7 +344,9 @@ const tasksToProcess: ProcessingTask[] = [];
                         throw new Error('Graph synchronization requested but Neo4j service is unavailable');
                 }
                 try {
-			console.log('Reading file:', task.id);
+                        let vectorStageCompleted = false;
+                        let lastGraphError: unknown = null;
+                        console.log('Reading file:', task.id);
 			const file = this.vault.getAbstractFileByPath(task.id);
 			if (!(file instanceof TFile)) {
 				throw new Error(`File not found or not a TFile: ${task.id}`);
@@ -394,9 +402,9 @@ const tasksToProcess: ProcessingTask[] = [];
 					tags: chunk.metadata.tags || []
 				}
 			}));
-			const vectorStage = requiresVectors && this.embeddingService && this.supabaseService
-				? async () => {
-					this.notifyProgress(task.id, 40, 'Generating embeddings');
+                        const vectorStage = requiresVectors && this.embeddingService && this.supabaseService
+                                ? async () => {
+                                        this.notifyProgress(task.id, 40, 'Generating embeddings');
 					for (let i = 0; i < enhancedChunks.length; i++) {
 						const embedProgress = Math.floor(40 + (i / enhancedChunks.length) * 30);
 						this.notifyProgress(
@@ -446,28 +454,41 @@ const tasksToProcess: ProcessingTask[] = [];
 							save: timings.saveComplete - timings.embeddingComplete
 						}
 					});
-					await this.supabaseService!.updateFileVectorizationStatus(task.metadata, 'vectorized');
-				}
-				: undefined;
-			const graphStage = requiresGraph && this.neo4jService
-				? async () => {
-					this.notifyProgress(task.id, requiresVectors ? 85 : 70, 'Updating knowledge graph');
-					const extraction = this.entityExtractor
-						? await this.entityExtractor.extractFromDocument(content, task.metadata)
-						: null;
-					await this.neo4jService!.upsertDocumentGraph(task.metadata, enhancedChunks, extraction);
-					timings.saveComplete = Date.now();
-				}
-				: undefined;
+                                        await this.supabaseService!.updateFileVectorizationStatus(task.metadata, 'vectorized');
+                                        vectorStageCompleted = true;
+                                }
+                                : undefined;
+                        const graphStage = requiresGraph && this.neo4jService
+                                ? async () => {
+                                        this.notifyProgress(task.id, requiresVectors ? 85 : 70, 'Updating knowledge graph');
+                                        const extraction = this.entityExtractor
+                                                ? await this.entityExtractor.extractFromDocument(content, task.metadata)
+                                                : null;
+                                        try {
+                                                await this.neo4jService!.upsertDocumentGraph(task.metadata, enhancedChunks, extraction);
+                                                timings.saveComplete = Date.now();
+                                        } catch (error) {
+                                                lastGraphError = error;
+                                                throw error;
+                                        }
+                                }
+                                : undefined;
 			if (!vectorStage) {
 				timings.embeddingComplete = timings.chunkingComplete;
 				timings.saveComplete = timings.chunkingComplete;
 			}
-                        await this.hybridRAGService.execute({
-                                mode: this.syncMode,
-                                vectorStage,
-                                graphStage
-                        });
+                        try {
+                                await this.hybridRAGService.execute({
+                                        mode: this.syncMode,
+                                        vectorStage,
+                                        graphStage
+                                });
+                        } catch (error) {
+                                if (lastGraphError) {
+                                        await this.handleGraphStageFailure(task, lastGraphError, { vectorStageCompleted });
+                                }
+                                throw error;
+                        }
                         if (this.graphBuilder?.isEnabled()) {
                                 try {
                                         await this.graphBuilder.processNote(content, task.metadata);
@@ -551,6 +572,91 @@ const tasksToProcess: ProcessingTask[] = [];
                         console.error('Error in processDeleteTask:', { error, taskId: task.id, metadata: task.metadata });
                         throw error;
                 }
+        }
+
+        private async handleGraphStageFailure(
+                task: ProcessingTask,
+                graphError: unknown,
+                options: { vectorStageCompleted: boolean }
+        ): Promise<never> {
+                const normalizedError = graphError instanceof Error
+                        ? graphError
+                        : new Error('Neo4j graph synchronization failed.');
+                const rolledBack = options.vectorStageCompleted
+                        ? await this.rollbackVectorStage(task.metadata)
+                        : false;
+                await this.recordHybridFailureTelemetry(task, normalizedError, rolledBack);
+                const errorCode = (graphError as { code?: string })?.code;
+                this.showNeo4jFailureNotice(errorCode, rolledBack);
+                const retryableError = new Error(normalizedError.message);
+                (retryableError as { code?: string }).code = HYBRID_GRAPH_ERROR_CODE;
+                throw retryableError;
+        }
+
+        private async rollbackVectorStage(metadata: DocumentMetadata): Promise<boolean> {
+                if (!this.supabaseService) {
+                        return false;
+                }
+                const filePath = metadata.obsidianId || metadata.path;
+                if (!filePath) {
+                        return false;
+                }
+                try {
+                        const fileStatusId = await this.supabaseService.getFileStatusIdByPath(filePath);
+                        if (fileStatusId) {
+                                await this.supabaseService.deleteDocumentChunks(fileStatusId, filePath);
+                        }
+                        await this.supabaseService.updateFileVectorizationStatus(metadata, 'pending');
+                        return true;
+                } catch (error) {
+                        this.errorHandler.handleError(
+                                error,
+                                { context: 'QueueService.rollbackVectorStage', metadata: { filePath } },
+                                'warn'
+                        );
+                        return false;
+                }
+        }
+
+        private async recordHybridFailureTelemetry(
+                task: ProcessingTask,
+                error: Error,
+                rolledBack: boolean
+        ): Promise<void> {
+                if (!this.syncFileManager) {
+                        return;
+                }
+                const filePath = task.metadata.path || task.metadata.obsidianId || task.id;
+                const operationType = task.type === TaskType.CREATE ? 'create' : 'update';
+                try {
+                        await this.syncFileManager.recordHybridFailure({
+                                filePath,
+                                operationType,
+                                errorCode: HYBRID_GRAPH_ERROR_CODE,
+                                errorMessage: error.message,
+                                rolledBack,
+                                batchLimit: this.neo4jService?.getBatchLimit(),
+                        });
+                } catch (telemetryError) {
+                        this.errorHandler.handleError(
+                                telemetryError,
+                                { context: 'QueueService.recordHybridFailureTelemetry', metadata: { filePath } },
+                                'warn'
+                        );
+                }
+        }
+
+        private showNeo4jFailureNotice(code: string | undefined, rolledBack: boolean): void {
+                const batchLimit = this.neo4jService?.getBatchLimit();
+                const sliderLabel = 'Aura batch cap (neo4jBatchLimit)';
+                const rollbackMessage = rolledBack
+                        ? 'Supabase vectors were rolled back to keep the run atomic.'
+                        : 'Supabase vectors are still pending and the sync file captured the failure.';
+                const limitDetail = typeof batchLimit === 'number' ? ` (current limit: ${batchLimit})` : '';
+                new Notice(
+                        `Neo4j sync failed${code ? ` (${code})` : ''}. ${rollbackMessage} ` +
+                                `The queue will retry automatically; consider lowering Settings → Neo4j → "${sliderLabel}"${limitDetail} if Aura throttles large batches.`
+                );
         }
 
 	private async handleTaskError(task: ProcessingTask, error: any): Promise<void> {

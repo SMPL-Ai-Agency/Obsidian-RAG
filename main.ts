@@ -526,14 +526,15 @@ this.settings.enableEntityPreview
 				notificationManager,
 				this.app.vault,
 				this.settings.chunking,
-				{
-					vectorSyncEnabled: useSupabase,
+                                {
+                                        vectorSyncEnabled: useSupabase,
                                         graphSyncEnabled: useNeo4j,
                                         neo4jService: this.neo4jService,
                                         entityExtractor: this.entityExtractor,
                                         hybridStrategy: this.settings.sync.hybridStrategy,
                                         syncMode: this.settings.sync.mode,
                                         graphBuilder: this.graphBuilder,
+                                        syncFileManager: this.syncManager,
                                 }
                         );
                         await this.queueService.start();
