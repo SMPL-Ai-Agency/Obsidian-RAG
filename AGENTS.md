@@ -104,7 +104,7 @@ To align with GitHub's best practices for open-source repositories (including br
 - **AI Directive**: Suggest local testing with Obsidian sandbox; check connections before syncs.
 
 ## Testing
-- Run the most relevant `yarn` scripts (e.g., `yarn test`, `yarn lint`, `yarn build`) for the area you touched before opening a PR.
+- ALWAYS run the most relevant `yarn` scripts (e.g., `yarn test`, `yarn lint`, `yarn build`) for the area you touched AND before opening a PR.
 - Include the commands you ran in your final summary, noting whether they passed.
 - **AI Directive**: Follow test-first; generate Jest tests covering edges (e.g., offline); use mocks for DB/APIs.
 
