@@ -1,4 +1,4 @@
-# AGENTS.md: Guidance for AI Coding Agents (e.g., OpenAI Codex, GitHub Copilot, Cursor)
+# AGENTS.md: Guidance for AI Coding Agents (e.g., OpenAI Codex, GitHub Copilot, Cursor, etc)
 
 This file provides unified instructions for AI agents assisting with Obsidian-RAG, an Obsidian plugin forked from the GitHub MindMatrix Obsidian project, but now a distinct codebase and standalone repo project.
 
