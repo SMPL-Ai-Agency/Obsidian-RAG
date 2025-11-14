@@ -114,7 +114,7 @@ To align with GitHub's best practices for open-source repositories (including br
 - **AI Directive**: Include "why" rationale; reference TASKS.md; ensure PRs align with Git workflow (feature branches, atomic commits).
 
 ## Safety and Permissions
-- **AI Directive**: Avoid code that sends data externally without Ollama; flag privacy risks; ensure secure API key handling.
+- **AI Directive**: Prioritize local Ollama for embeddings to minimize external data sends; enable user-configured fallbacks to Ollama Cloud or OpenAI-compatible services only via explicit settings. Flag privacy risks in comments; secure API keys (Obsidian storage, never hardcoded); add health checks before external calls.
 
 ## Example Usage
 - Prompt: "Implement a new rescan option in settings."
